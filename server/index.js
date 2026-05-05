@@ -197,7 +197,7 @@ io.on('connection', (socket) => {
       // Fetch player data from database
       const { data: profile, error: fetchError } = await supabase
         .from('profiles')
-        .select('keys, balance')
+        .select('keys, balance, role')
         .eq('id', playerId)
         .single();
 
@@ -231,7 +231,7 @@ io.on('connection', (socket) => {
       vault.status = 'opened';
       
       socket.emit('vault:claimed', vault);
-      socket.emit('inventory:update', { keys: profile.keys - 1, balance: profile.balance + vault.balanceCZK });
+      socket.emit('inventory:update', { keys: profile.keys - 1, balance: profile.balance + vault.balanceCZK, role: profile.role });
       io.emit('vault:update', { id: vault.id, status: 'opened' });
       console.log(`[vault] Игрок ${playerId} открыл сейф ${vault.id} с ${vault.balanceCZK} CZK (расстояние: ${distance.toFixed(1)}м)`);
     } catch (err) {

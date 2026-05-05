@@ -181,7 +181,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       // Listen for inventory updates
       socketInstance.on('inventory:update', (inventoryData) => {
         console.log('Инвентарь обновлен:', inventoryData);
-        setInventory(inventoryData);
+        setInventory(prev => ({ ...prev, ...inventoryData }));
       });
 
       // Listen for vault errors
@@ -223,6 +223,15 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       });
 
       return () => {
+        socketInstance.off('connect');
+        socketInstance.off('disconnect');
+        socketInstance.off('vaults:init');
+        socketInstance.off('vault:update');
+        socketInstance.off('inventory:init');
+        socketInstance.off('inventory:update');
+        socketInstance.off('vault:error');
+        socketInstance.off('error:no_keys');
+        socketInstance.off('vault:claimed');
         socketInstance.disconnect();
       };
     };
@@ -514,6 +523,12 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
             <div className="absolute top-6 left-6 right-6 z-20">
               <div className="premium-panel p-4 flex items-center justify-between shadow-2xl bg-bg-deep/90 backdrop-blur-md gap-4">
                 <div className="flex items-center gap-4">
+                  <button 
+                    onClick={onBack}
+                    className="p-2 bg-white/5 border border-border-main rounded text-text-main hover:bg-white/10 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
                   <div className="flex items-center gap-2">
                     <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider">Keys</span>
                     <span className="text-base font-black text-accent-orange">{inventory.keys}</span>
