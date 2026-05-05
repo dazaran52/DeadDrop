@@ -2,9 +2,14 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { getAllCurrencies } = require('./rates');
+const { createClient } = require('@supabase/supabase-js');
 
 const PORT = process.env.PORT || 3001;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
 const CLIENT_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -34,7 +39,7 @@ app.use(express.json());
 
 const vaults = [];
 const playerVaults = new Map(); // Track vaults per player
-const playerInventory = new Map(); // Track player inventory { keys, balance } by playerId
+const playerPositions = new Map(); // Track player positions by playerId
 const socketToPlayerId = new Map(); // Map socket.id to playerId
 
 /**
@@ -108,17 +113,29 @@ io.on('connection', (socket) => {
   console.log(`[socket] connected  : ${socket.id}`);
 
   // Handle player identification
-  socket.on('player:identify', ({ playerId }) => {
-    socketToPlayerId.set(socket.id, playerId);
-    console.log(`[socket] player ${playerId} identified as ${socket.id}`);
+  socket.on('player:identify', async ({ playerId }) => {
+    try {
+      socketToPlayerId.set(socket.id, playerId);
+      console.log(`[socket] player ${playerId} identified as ${socket.id}`);
 
-    // Initialize player inventory if not exists
-    if (!playerInventory.has(playerId)) {
-      playerInventory.set(playerId, { keys: 3, balance: 0 });
+      // Fetch player data from database
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('balance, keys, role')
+        .eq('id', playerId)
+        .single();
+
+      if (error) {
+        console.error('[db] Error fetching profile:', error);
+        socket.emit('inventory:init', { keys: 3, balance: 0, role: 'user' });
+        return;
+      }
+
+      socket.emit('inventory:init', profile);
+    } catch (err) {
+      console.error('[db] Exception in player:identify:', err);
+      socket.emit('inventory:init', { keys: 3, balance: 0, role: 'user' });
     }
-
-    // Send inventory to client
-    socket.emit('inventory:init', playerInventory.get(playerId));
   });
 
   // Real-time GPS position from a client
@@ -129,8 +146,7 @@ io.on('connection', (socket) => {
     console.log(`Игрок ${playerId} обновил позицию: [${payload.latitude.toFixed(6)}, ${payload.longitude.toFixed(6)}]`);
     
     // Store player position for distance validation
-    const inventory = playerInventory.get(playerId);
-    inventory.position = { lat: payload.latitude, lng: payload.longitude };
+    playerPositions.set(playerId, { lat: payload.latitude, lng: payload.longitude });
     
     // Generate vaults on first GPS update for this player
     if (!playerVaults.has(playerId)) {
@@ -139,11 +155,7 @@ io.on('connection', (socket) => {
       playerVaults.set(playerId, newVaults.map(v => v.id));
       console.log(`Сгенерировано 5 сейфов вокруг игрока ${playerId}`);
       
-      const vaultsWithCurrencies = newVaults.map(v => ({
-        ...v,
-        currencies: getAllCurrencies(v.balanceCZK),
-      }));
-      socket.emit('vaults:init', vaultsWithCurrencies);
+      socket.emit('vaults:init', newVaults);
     }
     
     // Broadcast to all OTHER connected clients
@@ -151,98 +163,130 @@ io.on('connection', (socket) => {
   });
 
   // Claim a vault
-  socket.on('vault:claim', (payload) => {
-    const playerId = socketToPlayerId.get(socket.id);
-    if (!playerId) return;
+  socket.on('vault:claim', async (payload) => {
+    try {
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId) return;
 
-    const vault = vaults.find(v => v.id === payload.vaultId);
-    const inventory = playerInventory.get(playerId);
-    
-    if (!vault || vault.status !== 'closed') {
-      socket.emit('vault:error', { message: 'Сейф уже открыт или не существует' });
-      return;
+      const vault = vaults.find(v => v.id === payload.vaultId);
+      const position = playerPositions.get(playerId);
+      
+      if (!vault || vault.status !== 'closed') {
+        socket.emit('vault:error', { message: 'Сейф уже открыт или не существует' });
+        return;
+      }
+
+      if (!position) {
+        socket.emit('vault:error', { message: 'Позиция игрока неизвестна' });
+        return;
+      }
+
+      // Calculate distance
+      const distance = calculateDistance(
+        position.lat,
+        position.lng,
+        vault.lat,
+        vault.lng
+      );
+
+      if (distance >= 15) {
+        socket.emit('vault:error', { message: `Слишком далеко! Расстояние: ${distance.toFixed(1)}м (требуется < 15м)` });
+        return;
+      }
+
+      // Fetch player data from database
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('keys, balance')
+        .eq('id', playerId)
+        .single();
+
+      if (fetchError) {
+        console.error('[db] Error fetching profile for vault claim:', fetchError);
+        socket.emit('vault:error', { message: 'Ошибка базы данных' });
+        return;
+      }
+
+      if (profile.keys <= 0) {
+        socket.emit('error:no_keys', { message: 'Нет ключей! Нужен минимум 1 ключ.' });
+        return;
+      }
+
+      // Update database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          keys: profile.keys - 1,
+          balance: profile.balance + vault.balanceCZK
+        })
+        .eq('id', playerId);
+
+      if (updateError) {
+        console.error('[db] Error updating profile for vault claim:', updateError);
+        socket.emit('vault:error', { message: 'Ошибка при обновлении базы данных' });
+        return;
+      }
+
+      // Valid claim - update vault status after successful DB update
+      vault.status = 'opened';
+      
+      socket.emit('vault:claimed', vault);
+      socket.emit('inventory:update', { keys: profile.keys - 1, balance: profile.balance + vault.balanceCZK });
+      io.emit('vault:update', { id: vault.id, status: 'opened' });
+      console.log(`[vault] Игрок ${playerId} открыл сейф ${vault.id} с ${vault.balanceCZK} CZK (расстояние: ${distance.toFixed(1)}м)`);
+    } catch (err) {
+      console.error('[db] Exception in vault:claim:', err);
+      socket.emit('vault:error', { message: 'Внутренняя ошибка сервера' });
     }
-
-    if (!inventory.position) {
-      socket.emit('vault:error', { message: 'Позиция игрока неизвестна' });
-      return;
-    }
-
-    // Strict key validation
-    if (inventory.keys <= 0) {
-      socket.emit('error:no_keys', { message: 'Нет ключей! Нужен минимум 1 ключ.' });
-      return;
-    }
-
-    // Calculate distance
-    const distance = calculateDistance(
-      inventory.position.lat,
-      inventory.position.lng,
-      vault.lat,
-      vault.lng
-    );
-
-    if (distance >= 15) {
-      socket.emit('vault:error', { message: `Слишком далеко! Расстояние: ${distance.toFixed(1)}м (требуется < 15м)` });
-      return;
-    }
-
-    if (inventory.keys < 1) {
-      socket.emit('error:no_keys', { message: 'Недостаточно ключей! Нужно минимум 1 ключ.' });
-      return;
-    }
-
-    // Valid claim
-    vault.status = 'opened';
-    inventory.keys -= 1;
-    inventory.balance += vault.balanceCZK;
-    
-    const vaultWithCurrencies = {
-      ...vault,
-      currencies: getAllCurrencies(vault.balanceCZK),
-    };
-    
-    socket.emit('vault:claimed', vaultWithCurrencies);
-    socket.emit('inventory:update', inventory);
-    io.emit('vault:update', { id: vault.id, status: 'opened' });
-    console.log(`[vault] Игрок ${playerId} открыл сейф ${vault.id} с ${vault.balanceCZK} CZK (расстояние: ${distance.toFixed(1)}м)`);
   });
 
   // DEV: Spawn vault near player
-  socket.on('dev:spawn_near', (payload) => {
-    const playerId = socketToPlayerId.get(socket.id);
-    if (!playerId) return;
+  socket.on('dev:spawn_near', async (payload) => {
+    try {
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId) return;
 
-    const inventory = playerInventory.get(playerId);
-    if (!inventory.position) {
-      socket.emit('vault:error', { message: 'Позиция игрока неизвестна' });
-      return;
+      // Check admin role
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', playerId)
+        .single();
+
+      if (fetchError || !profile || profile.role !== 'admin') {
+        socket.emit('vault:error', { message: 'Access denied' });
+        return;
+      }
+
+      const position = playerPositions.get(playerId);
+      if (!position) {
+        socket.emit('vault:error', { message: 'Позиция игрока неизвестна' });
+        return;
+      }
+
+      // Generate vault 5m away
+      const distance = 5;
+      const angle = Math.random() * 2 * Math.PI;
+      const latOffset = (distance / 111000) * Math.cos(angle);
+      const lngOffset = (distance / (111000 * Math.cos(position.lat * Math.PI / 180))) * Math.sin(angle);
+      
+      const newVault = {
+        id: `v_${Date.now()}`,
+        lat: position.lat + latOffset,
+        lng: position.lng + lngOffset,
+        balanceCZK: Math.floor(Math.random() * 4500) + 500,
+        status: 'closed',
+      };
+      
+      vaults.push(newVault);
+      
+      socket.emit('vaults:init', [newVault]);
+      io.emit('vault:update', { id: newVault.id, status: 'closed', ...newVault });
+      console.log(`[dev] Игрок ${playerId} создал сейф ${newVault.id} в 5м от себя`);
+    } catch (err) {
+      console.error('[db] Exception in dev:spawn_near:', err);
+      socket.emit('vault:error', { message: 'Внутренняя ошибка сервера' });
     }
-
-    // Generate vault 5m away
-    const distance = 5;
-    const angle = Math.random() * 2 * Math.PI;
-    const latOffset = (distance / 111000) * Math.cos(angle);
-    const lngOffset = (distance / (111000 * Math.cos(inventory.position.lat * Math.PI / 180))) * Math.sin(angle);
-    
-    const newVault = {
-      id: `v_${Date.now()}`,
-      lat: inventory.position.lat + latOffset,
-      lng: inventory.position.lng + lngOffset,
-      balanceCZK: Math.floor(Math.random() * 4500) + 500,
-      status: 'closed',
-    };
-    
-    vaults.push(newVault);
-    
-    const vaultWithCurrencies = {
-      ...newVault,
-      currencies: getAllCurrencies(newVault.balanceCZK),
-    };
-    
-    socket.emit('vaults:init', [vaultWithCurrencies]);
-    io.emit('vault:update', { id: newVault.id, status: 'closed', ...newVault });
-    console.log(`[dev] Игрок ${playerId} создал сейф ${newVault.id} в 5м от себя`);
   });
 
   socket.on('disconnect', () => {
