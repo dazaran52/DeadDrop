@@ -133,7 +133,11 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       localStorage.setItem('playerId', playerId);
     }
 
-    const socketInstance = io('/', { path: '/socket.io' });
+    const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
+      path: '/socket.io',
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
     socketInstance.emit('player:identify', { playerId });
     setSocket(socketInstance);
 
