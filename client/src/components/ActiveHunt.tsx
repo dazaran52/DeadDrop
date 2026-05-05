@@ -27,7 +27,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [vaults, setVaults] = useState<any[]>([]);
-  const [inventory, setInventory] = useState({ keys: 3, balance: 0 });
+  const [inventory, setInventory] = useState({ keys: 3, balance: 0, role: 'user' });
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -522,13 +522,33 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                     <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider">Balance</span>
                     <span className="text-base font-black text-accent-blue">{inventory.balance} Kč</span>
                   </div>
+                  {inventory.role === 'admin' && (
+                    <div className="px-2 py-1 bg-red-500/20 border border-red-500/50 rounded">
+                      <span className="text-[8px] font-black text-red-400 uppercase tracking-wider">[ADMIN]</span>
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-lg font-black text-text-main tracking-tighter leading-none">
-                      {nearestVaultDistance !== null ? nearestVaultDistance.toFixed(0) : 'SCAN'}
-                    </span>
-                    <span className="text-[8px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
+                <div className="flex items-center gap-3">
+                  {inventory.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        if (socket) {
+                          socket.emit('dev:spawn_near');
+                        }
+                      }}
+                      disabled={!isConnected}
+                      className="px-3 py-1.5 bg-red-500/20 border border-red-500/40 rounded text-[9px] font-black text-red-400 uppercase tracking-wider hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Spawn Vault (Dev)
+                    </button>
+                  )}
+                  <div className="text-right">
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="text-lg font-black text-text-main tracking-tighter leading-none">
+                        {nearestVaultDistance !== null ? nearestVaultDistance.toFixed(0) : 'SCAN'}
+                      </span>
+                      <span className="text-[8px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
+                    </div>
                   </div>
                 </div>
               </div>
