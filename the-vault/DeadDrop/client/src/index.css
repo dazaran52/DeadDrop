@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-accent-orange: #FF4500;
+  --color-accent-purple: #8A2BE2;
+  
+  /* Semantic variables that will be overridden in light mode */
+  --color-bg-deep: var(--bg-deep, #0B0C10);
+  --color-bg-card: var(--bg-card, rgba(30, 31, 38, 0.7));
+  --color-border-main: var(--border-main, rgba(138, 43, 226, 0.2));
+  --color-text-main: var(--text-main, #f5f5f5);
+  --color-text-muted: var(--text-muted, #b3b3b3);
+  --color-bg-inner: var(--bg-inner, #16171d);
+}
+
+@layer base {
+  :root {
+    --bg-deep: #0B0C10;
+    --bg-card: rgba(30, 31, 38, 0.7);
+    --bg-card-heavy: rgba(15, 16, 20, 0.85);
+    --bg-inner: #16171d;
+    --border-main: rgba(138, 43, 226, 0.2);
+    --text-main: #f5f5f5;
+    --text-muted: #b3b3b3;
+  }
+
+  .light {
+    --bg-deep: #f5f5f7;
+    --bg-card: rgba(255, 255, 255, 0.8);
+    --bg-card-heavy: rgba(255, 255, 255, 0.95);
+    --bg-inner: #f9f9f9;
+    --border-main: rgba(138, 43, 226, 0.1);
+    --text-main: #111111;
+    --text-muted: #666666;
+  }
+
+  body {
+    @apply bg-bg-deep text-text-main font-sans selection:bg-accent-orange selection:text-white transition-colors duration-300;
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  .premium-panel {
+    @apply bg-bg-card backdrop-blur-xl border border-border-main rounded-xl;
+  }
+  
+  .premium-panel-heavy {
+    @apply bg-[var(--bg-card-heavy,rgba(15,16,20,0.85))] backdrop-blur-2xl border border-border-main rounded-xl;
+  }
+
+  .dark-map .leaflet-tile {
+    filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(110%);
+  }
+  
+  .dark-map .leaflet-container {
+    background: #000;
+  }
+
+  @keyframes scan {
+    from { top: -5%; }
+    to { top: 105%; }
+  }
+}
+
+/* Hide leaflet attribution slightly or style it */
+.leaflet-control-attribution {
+  @apply !bg-black/40 !text-[8px] !text-gray-600 !border-none !font-mono uppercase;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #111;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
