@@ -4,18 +4,30 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const { getAllCurrencies } = require('./rates');
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const CLIENT_ORIGINS = [
   'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
   'http://localhost:5173',
+  /\.vercel\.app$/, // Разрешает любые твои деплои на Vercel
 ];
 
 const app = express();
 
-app.use(cors({ origin: CLIENT_ORIGINS, credentials: true }));
+app.use(cors({ 
+  origin: (origin, callback) => {
+    // Разрешаем запросы без origin (например, мобильные приложения или curl) 
+    // или если origin в списке разрешенных
+    if (!origin || CLIENT_ORIGINS.some(allowed => 
+      typeof allowed === 'string' ? allowed === origin : allowed.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }, 
+  credentials: true 
+}));
+
 app.use(express.json());
 
 // ── Vaults (Dynamic generation around player) ─────────────────────────────────
@@ -78,7 +90,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: CLIENT_ORIGINS,
+    origin: true, // В продакшене проще разрешить true с credentials для сокетов
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -244,5 +256,5 @@ io.on('connection', (socket) => {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 httpServer.listen(PORT, () => {
-  console.log(`[server] http://localhost:${PORT}`);
+  console.log(`[server] Online on port ${PORT}`);
 });
