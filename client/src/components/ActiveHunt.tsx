@@ -10,6 +10,7 @@ import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
 import { io, Socket } from 'socket.io-client';
+import { supabase } from '../lib/supabase';
 
 interface ActiveHuntProps {
   initialCoords: { latitude: number; longitude: number; accuracy: number };
@@ -126,102 +127,107 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
 
   // Socket.io Connection
   useEffect(() => {
-    // Generate or retrieve playerId from localStorage
-    let playerId = localStorage.getItem('playerId');
-    if (!playerId) {
-      playerId = 'player_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('playerId', playerId);
-    }
+    const initSocket = async () => {
+      // Get real user from Supabase session
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No user found, skipping socket connection');
+        return;
+      }
 
-    const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
-      path: '/socket.io',
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
-    socketInstance.emit('player:identify', { playerId });
-    setSocket(socketInstance);
-
-    // Listen for socket connection status
-    socketInstance.on('connect', () => {
-      console.log('Socket connected');
-      setIsConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setIsConnected(false);
-    });
-
-    // Listen for vaults initialization
-    socketInstance.on('vaults:init', (vaultsData) => {
-      console.log('Получены сейфы:', vaultsData);
-      setVaults(prev => [...prev, ...vaultsData]);
-    });
-
-    // Listen for vault updates (when another player claims a vault)
-    socketInstance.on('vault:update', (update) => {
-      setVaults(prev => {
-        const existing = prev.find(v => v.id === update.id);
-        if (existing) {
-          return prev.map(v => v.id === update.id ? { ...v, status: update.status } : v);
-        }
-        return [...prev, update];
+      const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
+        path: '/socket.io',
+        withCredentials: true,
+        transports: ['websocket', 'polling']
       });
-    });
+      socketInstance.emit('player:identify', { playerId: user.id });
+      setSocket(socketInstance);
 
-    // Listen for inventory initialization
-    socketInstance.on('inventory:init', (inventoryData) => {
-      console.log('Получен инвентарь:', inventoryData);
-      setInventory(inventoryData);
-    });
+      // Listen for socket connection status
+      socketInstance.on('connect', () => {
+        console.log('Socket connected');
+        setIsConnected(true);
+      });
 
-    // Listen for inventory updates
-    socketInstance.on('inventory:update', (inventoryData) => {
-      console.log('Инвентарь обновлен:', inventoryData);
-      setInventory(inventoryData);
-    });
+      socketInstance.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setIsConnected(false);
+      });
 
-    // Listen for vault errors
-    socketInstance.on('vault:error', (error) => {
-      console.error('Ошибка сейфа:', error.message);
-      setError(error.message);
-      setTimeout(() => setError(null), 3000);
-    });
+      // Listen for vaults initialization
+      socketInstance.on('vaults:init', (vaultsData) => {
+        console.log('Получены сейфы:', vaultsData);
+        setVaults(prev => [...prev, ...vaultsData]);
+      });
 
-    // Listen for no keys error
-    socketInstance.on('error:no_keys', (error) => {
-      console.error('Ошибка ключей:', error.message);
-      setError(error.message);
-      setTimeout(() => setError(null), 3000);
-    });
+      // Listen for vault updates (when another player claims a vault)
+      socketInstance.on('vault:update', (update) => {
+        setVaults(prev => {
+          const existing = prev.find(v => v.id === update.id);
+          if (existing) {
+            return prev.map(v => v.id === update.id ? { ...v, status: update.status } : v);
+          }
+          return [...prev, update];
+        });
+      });
 
-    // Listen for vault claimed
-    socketInstance.on('vault:claimed', (vault) => {
-      console.log('Сейф открыт:', vault);
-      // Reset claiming flag
-      isClaimingRef.current = false;
-      // Reset nearest vault state to hide button
-      setNearestVaultDistance(null);
-      setNearestVaultId(null);
-      // Remove vault from map state immediately
-      setVaults(prev => prev.filter(v => v.id !== vault.id));
-      // Add independent reward animation
-      const reward = {
-        id: vault.id,
-        amount: vault.balanceCZK,
-        lat: vault.lat,
-        lng: vault.lng,
+      // Listen for inventory initialization
+      socketInstance.on('inventory:init', (inventoryData) => {
+        console.log('Получен инвентарь:', inventoryData);
+        setInventory(inventoryData);
+      });
+
+      // Listen for inventory updates
+      socketInstance.on('inventory:update', (inventoryData) => {
+        console.log('Инвентарь обновлен:', inventoryData);
+        setInventory(inventoryData);
+      });
+
+      // Listen for vault errors
+      socketInstance.on('vault:error', (error) => {
+        console.error('Ошибка сейфа:', error.message);
+        setError(error.message);
+        setTimeout(() => setError(null), 3000);
+      });
+
+      // Listen for no keys error
+      socketInstance.on('error:no_keys', (error) => {
+        console.error('Ошибка ключей:', error.message);
+        setError(error.message);
+        setTimeout(() => setError(null), 3000);
+      });
+
+      // Listen for vault claimed
+      socketInstance.on('vault:claimed', (vault) => {
+        console.log('Сейф открыт:', vault);
+        // Reset claiming flag
+        isClaimingRef.current = false;
+        // Reset nearest vault state to hide button
+        setNearestVaultDistance(null);
+        setNearestVaultId(null);
+        // Remove vault from map state immediately
+        setVaults(prev => prev.filter(v => v.id !== vault.id));
+        // Add independent reward animation
+        const reward = {
+          id: vault.id,
+          amount: vault.balanceCZK,
+          lat: vault.lat,
+          lng: vault.lng,
+        };
+        setRewards(prev => [...prev, reward]);
+        // Remove reward after 2 seconds
+        setTimeout(() => {
+          setRewards(prev => prev.filter(r => r.id !== vault.id));
+        }, 2000);
+      });
+
+      return () => {
+        socketInstance.disconnect();
       };
-      setRewards(prev => [...prev, reward]);
-      // Remove reward after 2 seconds
-      setTimeout(() => {
-        setRewards(prev => prev.filter(r => r.id !== vault.id));
-      }, 2000);
-    });
-
-    return () => {
-      socketInstance.disconnect();
     };
+
+    initSocket();
   }, []);
 
   // Real GPS Tracking
