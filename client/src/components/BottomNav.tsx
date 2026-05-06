@@ -22,7 +22,7 @@ export default function BottomNav({ currentView, onViewChange, isSuperUser }: Bo
   ];
 
   return (
-    <nav className="z-50 p-6 pt-0 mt-auto bg-bg-deep border-t border-border-main">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 p-4 pt-0 bg-bg-deep border-t border-border-main">
       <div className="mx-auto w-full max-w-sm flex items-center justify-between gap-2">
         {navItems.map((item) => (
           <button

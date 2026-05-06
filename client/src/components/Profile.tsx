@@ -73,7 +73,7 @@ export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps
   ];
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-24 bg-bg-deep">
+    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-20 bg-bg-deep">
       {/* 1. OPERATIVE STATUS HEADER */}
       <div className="flex items-center justify-between border-b border-border-main pb-4">
         <div className="flex flex-col">

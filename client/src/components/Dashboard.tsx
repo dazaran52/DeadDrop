@@ -38,14 +38,14 @@ export default function Dashboard({ onStartHunt, onToggleSuperUser }: DashboardP
   ];
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-24 bg-bg-deep">
+    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-20 bg-bg-deep">
       {/* Header Info */}
       <div className="flex flex-col space-y-1">
         <h1 
           className="text-4xl font-black tracking-tighter text-text-main leading-none cursor-pointer select-none active:scale-95 transition-transform"
           onClick={handleTitleClick}
         >
-          TERMINAL.
+          NEXUS.
         </h1>
         <div className="flex items-center gap-2 mt-2">
           <span className="text-[10px] font-bold text-text-muted uppercase tracking-[0.2em] bg-white/5 py-1 px-3 border border-border-main rounded-lg">Operative Level 012</span>

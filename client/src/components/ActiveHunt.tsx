@@ -520,30 +520,30 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
               }}
             />
             
-            <div className="absolute top-6 left-6 right-6 z-20">
-              <div className="premium-panel p-4 flex items-center justify-between shadow-2xl bg-bg-deep/90 backdrop-blur-md gap-4">
-                <div className="flex items-center gap-4">
+            <div className="absolute top-4 left-4 right-4 z-20">
+              <div className="premium-panel p-2 flex flex-wrap items-center justify-between shadow-2xl bg-bg-deep/90 backdrop-blur-md gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button 
                     onClick={onBack}
-                    className="p-2 bg-white/5 border border-border-main rounded text-text-main hover:bg-white/10 transition-colors"
+                    className="p-1.5 bg-white/5 border border-border-main rounded text-text-main hover:bg-white/10 transition-colors"
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider">Keys</span>
-                    <span className="text-base font-black text-accent-orange">{inventory.keys}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7px] font-bold text-text-muted uppercase tracking-wider">Keys</span>
+                    <span className="text-sm font-black text-accent-orange">{inventory.keys}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider">Balance</span>
-                    <span className="text-base font-black text-accent-blue">{inventory.balance} Kč</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7px] font-bold text-text-muted uppercase tracking-wider">Balance</span>
+                    <span className="text-sm font-black text-accent-blue">{inventory.balance} Kč</span>
                   </div>
                   {inventory.role === 'admin' && (
-                    <div className="px-2 py-1 bg-red-500/20 border border-red-500/50 rounded">
-                      <span className="text-[8px] font-black text-red-400 uppercase tracking-wider">[ADMIN]</span>
+                    <div className="px-1.5 py-0.5 bg-red-500/20 border border-red-500/50 rounded">
+                      <span className="text-[7px] font-black text-red-400 uppercase tracking-wider">[ADMIN]</span>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                   {inventory.role === 'admin' && (
                     <button
                       onClick={() => {
@@ -552,17 +552,17 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                         }
                       }}
                       disabled={!isConnected}
-                      className="px-3 py-1.5 bg-red-500/20 border border-red-500/40 rounded text-[9px] font-black text-red-400 uppercase tracking-wider hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 bg-red-500/20 border border-red-500/40 rounded text-[8px] font-black text-red-400 uppercase tracking-wider hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Spawn Vault (Dev)
+                      Spawn Vault
                     </button>
                   )}
                   <div className="text-right">
                     <div className="flex items-baseline justify-end gap-1">
-                      <span className="text-lg font-black text-text-main tracking-tighter leading-none">
+                      <span className="text-sm font-black text-text-main tracking-tighter leading-none">
                         {nearestVaultDistance !== null ? nearestVaultDistance.toFixed(0) : 'SCAN'}
                       </span>
-                      <span className="text-[8px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
+                      <span className="text-[7px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
                     </div>
                   </div>
                 </div>
