@@ -158,7 +158,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       // Listen for vaults initialization
       socketInstance.on('vaults:init', (vaultsData) => {
         console.log('Получены сейфы:', vaultsData);
-        setVaults(prev => [...prev, ...vaultsData]);
+        setVaults(vaultsData);
       });
 
       // Listen for vault updates (when another player claims a vault)
@@ -166,7 +166,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         setVaults(prev => {
           const existing = prev.find(v => v.id === update.id);
           if (existing) {
-            return prev.map(v => v.id === update.id ? { ...v, status: update.status } : v);
+            return prev.map(v => v.id === update.id ? { ...v, is_active: update.is_active } : v);
           }
           return [...prev, update];
         });
@@ -211,7 +211,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         // Add independent reward animation
         const reward = {
           id: vault.id,
-          amount: vault.balanceCZK,
+          amount: vault.reward,
           lat: vault.lat,
           lng: vault.lng,
         };
@@ -263,8 +263,9 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
           let minDistance = Infinity;
           let nearestId = null;
           vaults.forEach(vault => {
-            if (vault.status === 'closed') {
+            if (vault.is_active === true) {
               const dist = getDistance(latitude, longitude, vault.lat, vault.lng);
+              console.log('Dist debug:', { userLoc: { latitude, longitude }, vaultLoc: { lat: vault.lat, lng: vault.lng }, dist });
               if (dist < minDistance) {
                 minDistance = dist;
                 nearestId = vault.id;
@@ -560,7 +561,11 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <div className="text-right">
                     <div className="flex items-baseline justify-end gap-1">
                       <span className="text-sm font-black text-text-main tracking-tighter leading-none">
-                        {nearestVaultDistance !== null ? nearestVaultDistance.toFixed(0) : 'SCAN'}
+                        {userLocation.latitude === 0 && userLocation.longitude === 0
+                          ? 'WAITING GPS...'
+                          : nearestVaultDistance !== null
+                          ? nearestVaultDistance.toFixed(0)
+                          : 'SCAN'}
                       </span>
                       <span className="text-[7px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
                     </div>
