@@ -348,7 +348,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   };
 
   return (
-    <div className="flex-1 flex flex-col relative h-full bg-bg-deep overflow-hidden">
+    <div className="flex-1 flex flex-col relative h-full overflow-hidden">
       {/* GPS Error Banner */}
       <AnimatePresence>
         {isGpsError && (
@@ -572,24 +572,6 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
           ВЗЛОМАТЬ DEADDROP
         </button>
       )}
-
-      {/* Floating Pill Navigation */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[999]">
-        <button onClick={onBack} className="flex flex-col items-center gap-1 transition-opacity opacity-100 text-blue-500">
-          <Map size={24} strokeWidth={2.5} />
-        </button>
-        <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
-          <User size={24} strokeWidth={2} />
-        </button>
-        {inventory.role === 'admin' && (
-          <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
-            <Shield size={24} strokeWidth={2} />
-          </button>
-        )}
-        <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
-          <Trophy size={24} strokeWidth={2} />
-        </button>
-      </div>
 
       {/* FAB Buttons Container */}
       <div className="absolute bottom-32 right-4 flex flex-col gap-4 z-50">

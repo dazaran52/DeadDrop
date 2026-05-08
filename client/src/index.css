@@ -17,6 +17,11 @@
 }
 
 @layer base {
+  html {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   :root {
     --bg-deep: #0B0C10;
     --bg-card: rgba(30, 31, 38, 0.7);
@@ -39,6 +44,7 @@
 
   body {
     @apply bg-bg-deep text-text-main font-sans selection:bg-accent-orange selection:text-white transition-colors duration-300;
+    overflow: hidden;
     overscroll-behavior: none;
   }
 }

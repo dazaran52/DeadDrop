@@ -111,8 +111,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#18181B] text-white pb-32 relative overflow-hidden font-sans">
-      <div className="relative w-full h-screen lg:w-[400px] lg:h-[840px] bg-[#18181B] lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] lg:shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#0A0A0A] text-white font-sans">
+      <div className="relative w-full h-full lg:w-[400px] lg:h-full lg:mx-auto bg-[#0A0A0A] lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] lg:shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
         
         {/* Notch Simulation */}
         <div className="hidden lg:flex absolute top-0 w-full justify-center items-start z-[60] pt-2">
@@ -138,24 +138,23 @@ export default function App() {
             </AnimatePresence>
           </main>
 
-          {view !== 'hunt' && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[100]">
-              <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-500' : 'opacity-50'}`}>
-                <Map size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
+          {/* Global Floating Pill Navigation - Always Visible */}
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[9999]">
+            <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
+              <Trophy size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
+            </button>
+            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
+              <Map size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
+            </button>
+            <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
+              <User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} />
+            </button>
+            {isSuperUser && (
+              <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'admin' ? 'opacity-100 text-red-400' : 'opacity-50'}`}>
+                <Shield size={24} strokeWidth={view === 'admin' ? 2.5 : 2} />
               </button>
-              <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-500' : 'opacity-50'}`}>
-                <User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} />
-              </button>
-              {isSuperUser && (
-                <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'admin' ? 'opacity-100 text-red-500' : 'opacity-50'}`}>
-                  <Shield size={24} strokeWidth={view === 'admin' ? 2.5 : 2} />
-                </button>
-              )}
-              <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-green-500' : 'opacity-50'}`}>
-                <Trophy size={24} strokeWidth={view === 'hunt' ? 2.5 : 2} />
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Global Grainy Overlay */}
