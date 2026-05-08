@@ -22,6 +22,7 @@ import { supabase } from './lib/supabase';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
   const [view, setView] = useState<ViewType>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
@@ -39,21 +40,33 @@ export default function App() {
     // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
+      
+      // If logged in, set app ready after a short delay to allow socket connection
+      if (session) {
+        setTimeout(() => setIsAppReady(true), 1500);
+      }
     });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session);
+      
+      // If logged in, set app ready after a short delay
+      if (session) {
+        setTimeout(() => setIsAppReady(true), 1500);
+      } else {
+        setIsAppReady(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading && isLoggedIn) {
+  if (!isAppReady) {
     return (
-      <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-12 h-12 text-accent-orange animate-spin" />
-        <p className="text-text-muted font-mono text-[10px] uppercase tracking-[0.4em] animate-pulse">Initializing Terminal...</p>
+      <div className="fixed inset-0 w-full h-full flex flex-col items-center justify-center bg-[#0A0A0A]">
+        <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+        <p className="text-white/50 font-mono text-sm uppercase tracking-widest animate-pulse">DEADDROP</p>
       </div>
     );
   }

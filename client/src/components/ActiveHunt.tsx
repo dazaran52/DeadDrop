@@ -27,7 +27,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [vaults, setVaults] = useState<any[]>([]);
-  const [inventory, setInventory] = useState({ keys: 3, balance: 0, role: 'user' });
+  const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -38,6 +38,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [isConnected, setIsConnected] = useState(false);
   const [shouldCenterMap, setShouldCenterMap] = useState(false);
   const [showDev, setShowDev] = useState(false);
+  const [showConnectionError, setShowConnectionError] = useState(false);
   
   // Refs for Web Audio API
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -130,7 +131,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
     const initSocket = async () => {
       // Get real user from Supabase session
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         console.log('No user found, skipping socket connection');
         return;
@@ -144,10 +145,17 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       socketInstance.emit('player:identify', { playerId: user.id });
       setSocket(socketInstance);
 
+      // Debounce connection error - show only after 3 seconds
+      const errorTimeout = setTimeout(() => {
+        setShowConnectionError(true);
+      }, 3000);
+
       // Listen for socket connection status
       socketInstance.on('connect', () => {
         console.log('Socket connected');
         setIsConnected(true);
+        setShowConnectionError(false);
+        clearTimeout(errorTimeout);
       });
 
       socketInstance.on('disconnect', () => {
@@ -533,10 +541,10 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                       <Key className="w-5 h-5 text-white/70" />
-                      <span className="text-2xl font-black text-white">{inventory.keys}</span>
+                      <span className="text-2xl font-black text-white">{inventory.items.filter(item => item.type === 'key').length}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white/70">{inventory.balance} Kč</span>
+                      <span className="text-lg font-bold text-white/70">{inventory.balance ?? 0} Kč</span>
                     </div>
                   </div>
                 </div>
@@ -644,7 +652,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       )}
 
       {/* Connection Error Overlay - Full Screen Block */}
-      {!isConnected && (
+      {showConnectionError && !isConnected && (
         <div className="fixed inset-0 bg-red-900/80 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="text-center">
             <p className="text-2xl font-black text-red-400 uppercase tracking-widest animate-pulse">
