@@ -24,7 +24,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAppReady, setIsAppReady] = useState(false);
-  const [view, setView] = useState<ViewType>('hunt');
+  const [view, setView] = useState<ViewType>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
   const { coords, error, loading } = useGeolocation();

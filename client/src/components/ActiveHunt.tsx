@@ -28,6 +28,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [socket, setSocket] = useState<Socket | null>(null);
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
+  const [profile, setProfile] = useState({ keys: 0, balance: 0 });
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -209,6 +210,17 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         console.error('Ошибка сейфа:', error.message);
         setError(error.message);
         setTimeout(() => setError(null), 3000);
+      });
+
+      // Listen for player profile sync (from profiles table)
+      socketInstance.on('player:sync', (profileData) => {
+        console.log('Получен профиль:', profileData);
+        if (profileData) {
+          setProfile({
+            keys: profileData.keys ?? 0,
+            balance: profileData.balance ?? 0
+          });
+        }
       });
 
       // Listen for no keys error
@@ -553,10 +565,10 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                       <Key className="w-5 h-5 text-white/70" />
-                      <span className="text-2xl font-black text-white">{inventory.items?.filter(item => item.type === 'key').length ?? 0}</span>
+                      <span className="text-2xl font-black text-white">{profile.keys}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white/70">{inventory.balance ?? 0} Kč</span>
+                      <span className="text-lg font-bold text-white/70">{profile.balance} Kč</span>
                     </div>
                   </div>
                 </div>
