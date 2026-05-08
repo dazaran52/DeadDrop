@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
@@ -521,54 +521,35 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
               }}
             />
             
-            <div className="absolute top-4 left-4 right-4 z-20">
-              <div className="premium-panel p-2 flex flex-wrap items-center justify-between shadow-2xl bg-bg-deep/90 backdrop-blur-md gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className="absolute top-6 left-4 right-4 z-20">
+              <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
+                <div className="flex items-center gap-4">
                   <button 
                     onClick={onBack}
-                    className="p-1.5 bg-white/5 border border-border-main rounded text-text-main hover:bg-white/10 transition-colors"
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-5 h-5 text-white" />
                   </button>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[7px] font-bold text-text-muted uppercase tracking-wider">Keys</span>
-                    <span className="text-sm font-black text-accent-orange">{inventory.keys}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[7px] font-bold text-text-muted uppercase tracking-wider">Balance</span>
-                    <span className="text-sm font-black text-accent-blue">{inventory.balance} Kč</span>
-                  </div>
-                  {inventory.role === 'admin' && (
-                    <div className="px-1.5 py-0.5 bg-red-500/20 border border-red-500/50 rounded">
-                      <span className="text-[7px] font-black text-red-400 uppercase tracking-wider">[ADMIN]</span>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <Key className="w-5 h-5 text-white/70" />
+                      <span className="text-2xl font-black text-white">{inventory.keys}</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white/70">{inventory.balance} Kč</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {inventory.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        if (socket) {
-                          socket.emit('dev:spawn_near');
-                        }
-                      }}
-                      disabled={!isConnected}
-                      className="px-2 py-1 bg-red-500/20 border border-red-500/40 rounded text-[8px] font-black text-red-400 uppercase tracking-wider hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Spawn Vault
-                    </button>
-                  )}
-                  <div className="text-right">
-                    <div className="flex items-baseline justify-end gap-1">
-                      <span className="text-sm font-black text-text-main tracking-tighter leading-none">
-                        {userLocation.latitude === 0 && userLocation.longitude === 0
-                          ? 'WAITING GPS...'
-                          : nearestVaultDistance !== null
-                          ? nearestVaultDistance.toFixed(0)
-                          : 'SCAN'}
-                      </span>
-                      <span className="text-[7px] font-black text-text-main opacity-50 uppercase tracking-wider">M</span>
-                    </div>
+                <div className="text-right">
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="text-2xl font-black text-white tracking-tighter leading-none">
+                      {userLocation.latitude === 0 && userLocation.longitude === 0
+                        ? 'WAITING...'
+                        : nearestVaultDistance !== null
+                        ? nearestVaultDistance.toFixed(0)
+                        : 'SCAN'}
+                    </span>
+                    <span className="text-xs font-black text-white/50 uppercase tracking-wider">M</span>
                   </div>
                 </div>
               </div>
@@ -596,7 +577,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       <button
         onClick={toggleAudio}
         disabled={!isConnected}
-        className="fixed right-4 bottom-32 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-accent-orange/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="fixed right-4 bottom-36 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {audioEnabled ? '🔊' : '🔇'}
       </button>
@@ -607,10 +588,25 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
           setShouldCenterMap(true);
           setTimeout(() => setShouldCenterMap(false), 1000);
         }}
-        className="fixed right-4 bottom-20 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-cyan-500/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors"
+        className="fixed right-4 bottom-20 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl hover:bg-white/20 transition-colors"
       >
         🎯
       </button>
+
+      {/* Admin Spawn Vault FAB */}
+      {inventory.role === 'admin' && (
+        <button
+          onClick={() => {
+            if (socket) {
+              socket.emit('dev:spawn_near');
+            }
+          }}
+          disabled={!isConnected}
+          className="fixed right-4 bottom-52 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-xl border border-blue-400/30 shadow-2xl hover:from-blue-500/30 hover:to-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Trophy className="w-6 h-6 text-blue-400" />
+        </button>
+      )}
 
       {/* DEV Menu Toggle */}
       {process.env.NODE_ENV === 'development' && (

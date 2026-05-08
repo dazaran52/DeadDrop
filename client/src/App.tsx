@@ -121,17 +121,13 @@ export default function App() {
 
         <div className="flex-1 flex flex-col pt-4 lg:pt-12 relative overflow-hidden">
           {view !== 'hunt' && (
-            <header className="px-6 flex justify-between items-end border-b border-border-main pb-4 mb-2">
+            <header className="px-6 flex justify-between items-end border-b border-white/10 pb-4 mb-2">
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-widest text-[#888] font-bold">Terminal Status</span>
-                <span className="text-xs font-black uppercase flex items-center gap-2 italic text-text-main">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent-orange animate-pulse shadow-[0_0_8px_rgba(255,69,0,0.4)]" />
-                  Primary Uplink Active
-                </span>
+                <span className="text-2xl font-black uppercase tracking-tighter text-white">OPERATIVE DOSSIER</span>
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-[10px] uppercase tracking-widest text-[#888] font-bold">Latency</span>
-                <span className="text-xs font-black italic text-text-main">0.02ms</span>
+                <span className="text-[10px] uppercase tracking-widest text-white/50 font-bold">Latency</span>
+                <span className="text-xs font-black italic text-white">0.02ms</span>
               </div>
             </header>
           )}
@@ -143,7 +139,7 @@ export default function App() {
           </main>
 
           {view !== 'hunt' && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-50">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[100]">
               <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-500' : 'opacity-50'}`}>
                 <Map size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
               </button>
