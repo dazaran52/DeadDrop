@@ -22,6 +22,7 @@ import { supabase } from './lib/supabase';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isAppReady, setIsAppReady] = useState(false);
   const [view, setView] = useState<ViewType>('hunt');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -39,8 +40,9 @@ export default function App() {
   useEffect(() => {
     // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthLoading(false);
       setIsLoggedIn(!!session);
-      
+
       // If logged in, set app ready after a short delay to allow socket connection
       if (session) {
         setTimeout(() => setIsAppReady(true), 1500);
@@ -49,8 +51,9 @@ export default function App() {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthLoading(false);
       setIsLoggedIn(!!session);
-      
+
       // If logged in, set app ready after a short delay
       if (session) {
         setTimeout(() => setIsAppReady(true), 1500);
@@ -62,7 +65,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (!isAppReady) {
+  if (authLoading) {
     return (
       <div className="fixed inset-0 w-full h-full flex flex-col items-center justify-center bg-[#0A0A0A]">
         <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
@@ -77,6 +80,15 @@ export default function App() {
         <div className="relative w-full h-screen lg:w-[400px] lg:h-[840px] bg-bg-card lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] flex flex-col overflow-hidden">
           <Login onLogin={() => setIsLoggedIn(true)} />
         </div>
+      </div>
+    );
+  }
+
+  if (!isAppReady) {
+    return (
+      <div className="fixed inset-0 w-full h-full flex flex-col items-center justify-center bg-[#0A0A0A]">
+        <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+        <p className="text-white/50 font-mono text-sm uppercase tracking-widest animate-pulse">DEADDROP</p>
       </div>
     );
   }
