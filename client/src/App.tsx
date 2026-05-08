@@ -23,7 +23,7 @@ import { supabase } from './lib/supabase';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
-  const [view, setView] = useState<ViewType>('dashboard');
+  const [view, setView] = useState<ViewType>('hunt');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
   const { coords, error, loading } = useGeolocation();

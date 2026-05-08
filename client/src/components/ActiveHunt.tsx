@@ -183,13 +183,25 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       // Listen for inventory initialization
       socketInstance.on('inventory:init', (inventoryData) => {
         console.log('Получен инвентарь:', inventoryData);
-        setInventory(inventoryData);
+        if (inventoryData) {
+          setInventory({
+            items: inventoryData.items || [],
+            balance: inventoryData.balance ?? 0,
+            role: inventoryData.role || 'user'
+          });
+        }
       });
 
       // Listen for inventory updates
       socketInstance.on('inventory:update', (inventoryData) => {
         console.log('Инвентарь обновлен:', inventoryData);
-        setInventory(prev => ({ ...prev, ...inventoryData }));
+        if (inventoryData) {
+          setInventory(prev => ({
+            items: inventoryData.items ?? prev.items,
+            balance: inventoryData.balance ?? prev.balance,
+            role: inventoryData.role ?? prev.role
+          }));
+        }
       });
 
       // Listen for vault errors
@@ -541,7 +553,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                       <Key className="w-5 h-5 text-white/70" />
-                      <span className="text-2xl font-black text-white">{inventory.items.filter(item => item.type === 'key').length}</span>
+                      <span className="text-2xl font-black text-white">{inventory.items?.filter(item => item.type === 'key').length ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-bold text-white/70">{inventory.balance ?? 0} Kč</span>
@@ -651,9 +663,9 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         </div>
       )}
 
-      {/* Connection Error Overlay - Full Screen Block */}
+      {/* Connection Error Overlay - Non-destructive overlay */}
       {showConnectionError && !isConnected && (
-        <div className="fixed inset-0 bg-red-900/80 backdrop-blur-sm z-[100] flex items-center justify-center">
+        <div className="absolute inset-0 bg-red-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
           <div className="text-center">
             <p className="text-2xl font-black text-red-400 uppercase tracking-widest animate-pulse">
               CRITICAL ERROR: UPLINK LOST
