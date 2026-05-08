@@ -17,7 +17,7 @@ import AdminPanel from './components/AdminPanel';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { ShieldAlert, Loader2, Map, User, Trophy, Shield } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 export default function App() {
@@ -111,8 +111,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#06070a] text-text-main font-sans selection:bg-accent-orange selection:text-white overflow-hidden flex flex-col items-center justify-center p-0 lg:p-8">
-      <div className="relative w-full h-screen lg:w-[400px] lg:h-[840px] bg-bg-card lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] lg:shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
+    <div className="min-h-screen w-full bg-[#18181B] text-white pb-32 relative overflow-hidden font-sans">
+      <div className="relative w-full h-screen lg:w-[400px] lg:h-[840px] bg-[#18181B] lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] lg:shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
         
         {/* Notch Simulation */}
         <div className="hidden lg:flex absolute top-0 w-full justify-center items-start z-[60] pt-2">
@@ -143,7 +143,22 @@ export default function App() {
           </main>
 
           {view !== 'hunt' && (
-            <BottomNav currentView={view} onViewChange={setView} isSuperUser={isSuperUser} />
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-50">
+              <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-500' : 'opacity-50'}`}>
+                <Map size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
+              </button>
+              <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-500' : 'opacity-50'}`}>
+                <User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} />
+              </button>
+              {isSuperUser && (
+                <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'admin' ? 'opacity-100 text-red-500' : 'opacity-50'}`}>
+                  <Shield size={24} strokeWidth={view === 'admin' ? 2.5 : 2} />
+                </button>
+              )}
+              <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-green-500' : 'opacity-50'}`}>
+                <Trophy size={24} strokeWidth={view === 'hunt' ? 2.5 : 2} />
+              </button>
+            </div>
           )}
         </div>
 
