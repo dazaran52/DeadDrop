@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy, VolumeX, Volume2, Crosshair, Map, User, Shield } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
@@ -573,40 +573,61 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         </button>
       )}
 
-      {/* Audio FAB */}
-      <button
-        onClick={toggleAudio}
-        disabled={!isConnected}
-        className="fixed right-4 bottom-36 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {audioEnabled ? '🔊' : '🔇'}
-      </button>
+      {/* Floating Pill Navigation */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[999]">
+        <button onClick={onBack} className="flex flex-col items-center gap-1 transition-opacity opacity-100 text-blue-500">
+          <Map size={24} strokeWidth={2.5} />
+        </button>
+        <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
+          <User size={24} strokeWidth={2} />
+        </button>
+        {inventory.role === 'admin' && (
+          <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
+            <Shield size={24} strokeWidth={2} />
+          </button>
+        )}
+        <button className="flex flex-col items-center gap-1 transition-opacity opacity-50">
+          <Trophy size={24} strokeWidth={2} />
+        </button>
+      </div>
 
-      {/* Center Map FAB */}
-      <button
-        onClick={() => {
-          setShouldCenterMap(true);
-          setTimeout(() => setShouldCenterMap(false), 1000);
-        }}
-        className="fixed right-4 bottom-20 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl hover:bg-white/20 transition-colors"
-      >
-        🎯
-      </button>
+      {/* FAB Buttons Container */}
+      <div className="absolute bottom-32 right-4 flex flex-col gap-4 z-50">
+        {/* Admin Spawn Vault FAB */}
+        {inventory.role === 'admin' && (
+          <button
+            onClick={() => {
+              if (socket) {
+                socket.emit('dev:spawn_near');
+              }
+            }}
+            disabled={!isConnected}
+            className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-cyan-400 hover:bg-black/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trophy className="w-5 h-5" />
+          </button>
+        )}
 
-      {/* Admin Spawn Vault FAB */}
-      {inventory.role === 'admin' && (
+        {/* Audio FAB */}
+        <button
+          onClick={toggleAudio}
+          disabled={!isConnected}
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
+
+        {/* Center Map FAB */}
         <button
           onClick={() => {
-            if (socket) {
-              socket.emit('dev:spawn_near');
-            }
+            setShouldCenterMap(true);
+            setTimeout(() => setShouldCenterMap(false), 1000);
           }}
-          disabled={!isConnected}
-          className="fixed right-4 bottom-52 z-40 w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-xl border border-blue-400/30 shadow-2xl hover:from-blue-500/30 hover:to-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
         >
-          <Trophy className="w-6 h-6 text-blue-400" />
+          <Crosshair className="w-5 h-5" />
         </button>
-      )}
+      </div>
 
       {/* DEV Menu Toggle */}
       {process.env.NODE_ENV === 'development' && (
