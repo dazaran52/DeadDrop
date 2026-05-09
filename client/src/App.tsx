@@ -35,6 +35,15 @@ export default function App() {
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Array<{ id: string; start_time: string }>>([]);
+
+  // Calculate isAwaitingDeployment based on registered events
+  const isAwaitingDeployment = registeredEvents.length > 0 && registeredEvents.some(event => {
+    const now = new Date();
+    const start = new Date(event.start_time);
+    const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
+    return diffMinutes > 5; // Still waiting for deployment window
+  });
+
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -205,6 +214,7 @@ export default function App() {
           keys={keys}
           activeOperationId={activeOperationId}
           registeredEvents={registeredEvents}
+          isAwaitingDeployment={isAwaitingDeployment}
         />
       );
     }

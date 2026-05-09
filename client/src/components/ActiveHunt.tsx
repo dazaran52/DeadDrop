@@ -20,11 +20,12 @@ interface ActiveHuntProps {
   keys: number;
   activeOperationId?: string | null;
   registeredEvents?: Array<{ id: string; start_time: string }>;
+  isAwaitingDeployment?: boolean;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId, registeredEvents = [] }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -409,7 +410,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       {/* Observer Mode Blur Overlay */}
       {activeOperationId === null && (
         <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center">
-          {!hasRegisteredEvents ? (
+          {!isAwaitingDeployment ? (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
                 <Map className="w-8 h-8 text-white/40" />
@@ -417,12 +418,12 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
               <h2 className="text-2xl font-black text-white tracking-tighter uppercase">NO ACTIVE UPLINK</h2>
               <p className="text-sm text-white/60 font-medium">BROWSE OPERATIONS IN LOBBY</p>
             </div>
-          ) : !canDeployToNearest ? (
+          ) : (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-accent-orange/10 flex items-center justify-center border border-accent-orange/30 mx-auto">
                 <Clock className="w-8 h-8 text-accent-orange/60" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">AWAITING DEPLOYMENT</h2>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">AWAITING DEPLOYMENT. STANDBY IN LOBBY.</h2>
               {nearestEvent && (
                 <p className="text-sm text-white/60 font-mono">
                   NEXT OP IN: {(() => {
@@ -435,9 +436,8 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                   })()}
                 </p>
               )}
-              <p className="text-xs text-white/40 font-medium">RETURN TO LOBBY TO STANDBY</p>
             </div>
-          ) : null}
+          )}
         </div>
       )}
 
@@ -657,7 +657,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute bottom-32 right-4 flex flex-col gap-4 z-50">
+      <div className="absolute bottom-36 right-4 flex flex-col gap-4 z-50">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button

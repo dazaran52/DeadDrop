@@ -266,19 +266,20 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 bg-bg-deep relative">
-      {/* Toast Message */}
+      {/* Toast Message - Bottom */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-20 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
           >
             {toastMessage}
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -396,13 +397,13 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
               {registeredEvents.has(event.id) ? (
                 <button
                   onClick={() => handleDeploy(event.id, event.start_time)}
-                  className={`w-full py-4 font-black text-lg rounded-full border border-white/10 transition-all ${
+                  className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
                     canDeploy(event.start_time)
-                      ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10'
-                      : 'bg-slate-800 text-gray-400 cursor-not-allowed'
+                      ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10 border-white/10'
+                      : 'bg-transparent border-dashed border-white/20 text-white/50 font-mono text-sm tracking-widest cursor-not-allowed'
                   }`}
                 >
-                  {canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : 'REGISTERED ✓ (DEPLOY LOCKED)'}
+                  {canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : '[ STANDBY ] T-ZERO PENDING'}
                 </button>
               ) : (
                 <button
