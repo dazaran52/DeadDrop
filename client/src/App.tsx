@@ -14,6 +14,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
 import AdminPanel from './components/AdminPanel';
+import Events from './components/Events';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -185,6 +186,7 @@ export default function App() {
 
     switch (view) {
       case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
+      case 'events': return <Events />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);

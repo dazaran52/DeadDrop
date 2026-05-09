@@ -556,21 +556,13 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
             
             <div className="absolute top-6 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={onBack}
-                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                  >
-                    <ArrowLeft className="w-5 h-5 text-white" />
-                  </button>
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <Key className="w-5 h-5 text-white/70" />
-                      <span className="text-2xl font-black text-white">{keys}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white/70">{balance} Kč</span>
-                    </div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-5 h-5 text-white/70" />
+                    <span className="text-2xl font-black text-white">{keys}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-white/70">{balance} Kč</span>
                   </div>
                 </div>
                 <div className="text-right">
