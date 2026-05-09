@@ -382,7 +382,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
   };
 
   return (
-    <div className="flex-1 flex flex-col relative h-full overflow-hidden">
+    <div className="absolute inset-0 w-full h-screen bg-black flex flex-col overflow-hidden">
       {/* GPS Error Banner */}
       <AnimatePresence>
         {isGpsError && (
