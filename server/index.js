@@ -306,6 +306,127 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Event: Join (Zero Trust transaction)
+  socket.on('event:join', async (data) => {
+    try {
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId) {
+        socket.emit('event:join_response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const { eventId } = data;
+      if (!eventId) {
+        socket.emit('event:join_response', { success: false, error: 'Event ID required' });
+        return;
+      }
+
+      // Server-side validation: Fetch event entry_fee directly from database
+      const { data: event, error: eventError } = await supabase
+        .from('events')
+        .select('id, entry_fee, status')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError || !event) {
+        console.error('[db] Error fetching event:', eventError);
+        socket.emit('event:join_response', { success: false, error: 'Event not found' });
+        return;
+      }
+
+      if (event.status !== 'upcoming') {
+        socket.emit('event:join_response', { success: false, error: 'Event is not available for registration' });
+        return;
+      }
+
+      // Server-side validation: Fetch user balance directly from database
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, balance, keys, role')
+        .eq('id', playerId)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('[db] Error fetching profile:', profileError);
+        socket.emit('event:join_response', { success: false, error: 'Profile not found' });
+        return;
+      }
+
+      // Zero Trust: Compare server-side balance with server-side entry_fee
+      if (profile.balance < event.entry_fee) {
+        socket.emit('event:join_response', { success: false, error: 'Insufficient funds' });
+        return;
+      }
+
+      // Check if user is already registered for this event
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('event_participants')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('user_id', playerId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('[db] Error checking participant:', checkError);
+        socket.emit('event:join_response', { success: false, error: 'Database error' });
+        return;
+      }
+
+      if (existingParticipant) {
+        socket.emit('event:join_response', { success: false, error: 'Already registered for this event' });
+        return;
+      }
+
+      // Execute transaction: Deduct fee from user balance
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          balance: profile.balance - event.entry_fee
+        })
+        .eq('id', playerId);
+
+      if (updateError) {
+        console.error('[db] Error updating balance:', updateError);
+        socket.emit('event:join_response', { success: false, error: 'Failed to update balance' });
+        return;
+      }
+
+      // Add record to event_participants table
+      const { error: insertError } = await supabase
+        .from('event_participants')
+        .insert({
+          event_id: eventId,
+          user_id: playerId
+        });
+
+      if (insertError) {
+        console.error('[db] Error inserting participant:', insertError);
+        // Rollback balance if participant insert fails
+        await supabase
+          .from('profiles')
+          .update({ balance: profile.balance })
+          .eq('id', playerId);
+        socket.emit('event:join_response', { success: false, error: 'Failed to register for event' });
+        return;
+      }
+
+      // Send success response
+      socket.emit('event:join_response', { success: true });
+
+      // Immediately send updated profile state via player:sync to update UI
+      socket.emit('player:sync', {
+        balance: profile.balance - event.entry_fee,
+        keys: profile.keys,
+        role: profile.role
+      });
+
+      console.log(`[event] Player ${playerId} joined event ${eventId} (fee: ${event.entry_fee} CZK)`);
+    } catch (err) {
+      console.error('[db] Exception in event:join:', err);
+      socket.emit('event:join_response', { success: false, error: 'Internal server error' });
+    }
+  });
+
   socket.on('disconnect', () => {
     const playerId = socketToPlayerId.get(socket.id);
     socketToPlayerId.delete(socket.id);
