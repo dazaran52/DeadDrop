@@ -42,7 +42,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
   const [rosterEventId, setRosterEventId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [buttonMessage, setButtonMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const canDeploy = (startTime: string): boolean => {
     const now = new Date();
@@ -53,8 +53,8 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
   const handleDeploy = (eventId: string, startTime: string) => {
     if (!canDeploy(startTime)) {
-      setButtonMessage(eventId);
-      setTimeout(() => setButtonMessage(null), 3000);
+      setToastMessage('Deployment opens 5 minutes before start');
+      setTimeout(() => setToastMessage(null), 3000);
       return;
     }
     onNavigate?.('hunt', eventId);
@@ -200,7 +200,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
       socket.emit('event:join', { eventId: selectedEvent });
 
-      socket.on('event:join:success', () => {
+      socket.once('event:join:success', () => {
         setIsJoining(false);
         setRegisteredEvents(prev => new Set([...prev, selectedEvent]));
 
@@ -219,7 +219,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
         loadRegisteredEvents();
       });
 
-      socket.on('event:join:error', (error) => {
+      socket.once('event:join:error', (error) => {
         setIsJoining(false);
         setModalError(error.message || 'Failed to join event');
       });
@@ -266,6 +266,20 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 bg-bg-deep relative">
+      {/* Toast Message */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-xl text-center text-sm"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -386,12 +400,10 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                   className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
                     canDeploy(event.start_time)
                       ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10 border-white/10'
-                      : 'bg-transparent border-dashed border-white/20 text-white/50 font-mono text-sm tracking-widest cursor-not-allowed'
+                      : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
                   }`}
                 >
-                  {buttonMessage === event.id ? (
-                    <span className="text-red-500">[ ACCESS DENIED: WAIT FOR T-5 ]</span>
-                  ) : canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : '[ STANDBY ] T-ZERO PENDING'}
+                  {canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
                 </button>
               ) : (
                 <button

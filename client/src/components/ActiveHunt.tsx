@@ -32,6 +32,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localIsAwaitingDeployment, setLocalIsAwaitingDeployment] = useState(false);
+  const [nearestEventTitle, setNearestEventTitle] = useState<string | null>(null);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -48,17 +49,24 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
             .eq('user_id', user.id);
 
           if (participants && participants.length > 0) {
-            // Check if any of these events are upcoming
+            // Check if any of these events are upcoming and get their titles
             const eventIds = participants.map(p => p.event_id);
             const { data: events } = await supabase
               .from('events')
-              .select('id, start_time')
+              .select('id, start_time, title')
               .in('id', eventIds)
               .eq('status', 'upcoming');
 
             if (events && events.length > 0) {
               setLocalIsAwaitingDeployment(true);
+              setNearestEventTitle(events[0].title);
+            } else {
+              setLocalIsAwaitingDeployment(false);
+              setNearestEventTitle(null);
             }
+          } else {
+            setLocalIsAwaitingDeployment(false);
+            setNearestEventTitle(null);
           }
         } catch (err) {
           console.error('Error checking registered events:', err);
@@ -452,15 +460,20 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
                 <Map className="w-8 h-8 text-white/40" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">NO ACTIVE UPLINK</h2>
-              <p className="text-sm text-white/60 font-medium">BROWSE OPERATIONS IN LOBBY</p>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">No Active Operations</h2>
+              <p className="text-sm text-white/60 font-medium">You haven't joined any events. Go to the Lobby to browse operations.</p>
             </div>
           ) : (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-accent-orange/10 flex items-center justify-center border border-accent-orange/30 mx-auto">
                 <Clock className="w-8 h-8 text-accent-orange/60" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">AWAITING DEPLOYMENT. STANDBY IN LOBBY.</h2>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Awaiting Deployment</h2>
+              {nearestEventTitle && (
+                <p className="text-sm text-white/60 font-medium">
+                  You are registered for <span className="text-accent-orange font-bold">{nearestEventTitle}</span>. You can deploy to the zone 5 minutes before it starts.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -682,7 +695,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute bottom-40 right-4 flex flex-col gap-4 z-50">
+      <div className="absolute bottom-[120px] right-4 z-[9999] flex flex-col gap-4">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
