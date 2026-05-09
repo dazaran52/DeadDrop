@@ -39,6 +39,7 @@ export default function Events({ balance, socket }: EventsProps) {
   const [modalError, setModalError] = useState<string | null>(null);
   const [rosterEventId, setRosterEventId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -59,6 +60,9 @@ export default function Events({ balance, socket }: EventsProps) {
 
   const loadEvents = async () => {
     try {
+      console.log('FETCH_START: Loading events');
+      setFetchError(null);
+
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -73,8 +77,12 @@ export default function Events({ balance, socket }: EventsProps) {
         .in('status', ['upcoming', 'live'])
         .order('start_time', { ascending: true });
 
+      console.log('FETCH_RESULT:', data);
+      console.log('FETCH_ERROR:', error);
+
       if (error) {
-        console.error('Error loading events:', error);
+        console.error('FETCH_ERROR:', error);
+        setFetchError(JSON.stringify(error));
         setEvents([]);
       } else {
         const eventsWithParticipants = (data || []).map(event => ({
@@ -84,10 +92,12 @@ export default function Events({ balance, socket }: EventsProps) {
             username: p.profiles.username
           }))
         }));
+        console.log('PROCESSED_EVENTS:', eventsWithParticipants);
         setEvents(eventsWithParticipants);
       }
     } catch (err) {
-      console.error('Error loading events:', err);
+      console.error('FETCH_ERROR:', err);
+      setFetchError(err instanceof Error ? err.message : String(err));
       setEvents([]);
     } finally {
       setLoading(false);
@@ -213,6 +223,12 @@ export default function Events({ balance, socket }: EventsProps) {
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-white/50 text-sm uppercase tracking-widest animate-pulse">Loading Operations...</div>
+        </div>
+      ) : fetchError ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-red-500 text-sm font-black font-mono uppercase tracking-widest text-center">
+            SYSTEM ERROR: {fetchError}
+          </div>
         </div>
       ) : events.length === 0 ? (
         <div className="flex items-center justify-center py-12">
