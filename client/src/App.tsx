@@ -310,13 +310,6 @@ export default function App() {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-noise" />
         </div>
       </div>
-
-      <div className="absolute top-10 right-10 text-right opacity-10 pointer-events-none hidden lg:block text-[10px] leading-relaxed uppercase font-mono tracking-widest">
-        VAULT TERMINAL OS v4.1.0<br/>
-        ENCRYPTION: 4096-BIT RSA<br/>
-        UPLINK: SECURE_ALPHA_9<br/>
-        SESSION: {Math.random().toString(16).slice(2, 10).toUpperCase()}
-      </div>
     </div>
   );
 }

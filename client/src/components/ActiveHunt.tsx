@@ -34,6 +34,32 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localIsAwaitingDeployment, setLocalIsAwaitingDeployment] = useState(false);
   const [registeredEventsData, setRegisteredEventsData] = useState<Array<{ id: string; title: string; start_time: string }>>([]);
+  const [operationTitle, setOperationTitle] = useState<string | null>(null);
+
+  // Fetch operation title when activeOperationId changes
+  useEffect(() => {
+    if (activeOperationId) {
+      const fetchOperationTitle = async () => {
+        try {
+          const { data: event } = await supabase
+            .from('events')
+            .select('title')
+            .eq('id', activeOperationId)
+            .single();
+
+          if (event) {
+            setOperationTitle(event.title);
+          }
+        } catch (err) {
+          console.error('Error fetching operation title:', err);
+        }
+      };
+
+      fetchOperationTitle();
+    } else {
+      setOperationTitle(null);
+    }
+  }, [activeOperationId]);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -455,8 +481,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     <div className="absolute inset-0 w-full h-screen bg-black flex flex-col overflow-hidden">
       {/* Operation Header */}
       <div className="absolute top-0 w-full bg-black/90 border-b border-white/10 py-3 text-center z-[9999]">
-        <span className="text-white font-mono text-sm font-bold uppercase tracking-wider">
-          {activeOperationId ? `OPERATION: ${activeOperationId}` : 'GLOBAL MAP'}
+        <span className="text-white font-mono text-sm font-bold uppercase tracking-wider px-4 truncate">
+          {operationTitle ? `OPERATION: ${operationTitle}` : 'GLOBAL MAP'}
         </span>
       </div>
 
@@ -722,7 +748,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute !bottom-32 right-4 !z-[99999] flex flex-col gap-4">
+      <div className="absolute right-4 flex flex-col gap-4 bottom-[150px] md:bottom-[120px] z-[99999]">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
