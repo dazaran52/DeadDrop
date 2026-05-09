@@ -63,38 +63,67 @@ export default function Events({ balance, socket }: EventsProps) {
       console.log('FETCH_START: Loading events');
       setFetchError(null);
 
-      const { data, error } = await supabase
+      // Step 1: Load events without participants
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select(`
-          *,
-          participants:event_participants (
-            user_id,
-            profiles!inner (
-              username
-            )
-          )
-        `)
+        .select('*')
         .in('status', ['upcoming', 'live'])
         .order('start_time', { ascending: true });
 
-      console.log('FETCH_RESULT:', data);
-      console.log('FETCH_ERROR:', error);
+      console.log('FETCH_EVENTS_RESULT:', eventsData);
+      console.log('FETCH_EVENTS_ERROR:', eventsError);
 
-      if (error) {
-        console.error('FETCH_ERROR:', error);
-        setFetchError(JSON.stringify(error));
+      if (eventsError) {
+        console.error('FETCH_EVENTS_ERROR:', eventsError);
+        setFetchError(JSON.stringify(eventsError));
         setEvents([]);
-      } else {
-        const eventsWithParticipants = (data || []).map(event => ({
-          ...event,
-          participants: (event.participants || []).map((p: any) => ({
-            user_id: p.user_id,
-            username: p.profiles.username
-          }))
-        }));
-        console.log('PROCESSED_EVENTS:', eventsWithParticipants);
-        setEvents(eventsWithParticipants);
+        setLoading(false);
+        return;
       }
+
+      if (!eventsData || eventsData.length === 0) {
+        console.log('NO_EVENTS_FOUND');
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Load participants for all events
+      const eventIds = eventsData.map(e => e.id);
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('event_participants')
+        .select('event_id, user_id, profiles(username)')
+        .in('event_id', eventIds);
+
+      console.log('FETCH_PARTICIPANTS_RESULT:', participantsData);
+      console.log('FETCH_PARTICIPANTS_ERROR:', participantsError);
+
+      if (participantsError) {
+        console.error('FETCH_PARTICIPANTS_ERROR:', participantsError);
+        setFetchError(JSON.stringify(participantsError));
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Merge events with participants
+      const eventsWithParticipants = eventsData.map(event => {
+        const eventParticipants = (participantsData || [])
+          .filter((p: any) => p.event_id === event.id)
+          .map((p: any) => ({
+            user_id: p.user_id,
+            username: p.profiles?.username || 'Unknown'
+          }));
+
+        return {
+          ...event,
+          participants: eventParticipants
+        };
+      });
+
+      console.log('PROCESSED_EVENTS:', eventsWithParticipants);
+      setEvents(eventsWithParticipants);
+      setFetchError(null);
     } catch (err) {
       console.error('FETCH_ERROR:', err);
       setFetchError(err instanceof Error ? err.message : String(err));
