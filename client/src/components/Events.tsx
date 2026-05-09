@@ -5,13 +5,18 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, TrendingUp, Target, X, Wallet, Activity } from 'lucide-react';
+import { Clock, TrendingUp, Target, X, Wallet, Activity, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Socket } from 'socket.io-client';
 
 interface EventsProps {
   balance: number;
   socket: Socket | null;
+}
+
+interface Participant {
+  user_id: string;
+  username: string;
 }
 
 interface Event {
@@ -21,6 +26,8 @@ interface Event {
   entry_fee: number;
   start_time: string;
   status: string;
+  max_participants: number;
+  participants: Participant[];
 }
 
 export default function Events({ balance, socket }: EventsProps) {
@@ -30,17 +37,39 @@ export default function Events({ balance, socket }: EventsProps) {
   const [loading, setLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [rosterEventId, setRosterEventId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
 
   useEffect(() => {
     loadEvents();
     loadRegisteredEvents();
+    loadCurrentUser();
   }, []);
+
+  const loadCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUser({ id: user.id, username: user.user_metadata.username || null });
+      }
+    } catch (err) {
+      console.error('Error loading current user:', err);
+    }
+  };
 
   const loadEvents = async () => {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          participants:event_participants (
+            user_id,
+            profiles!inner (
+              username
+            )
+          )
+        `)
         .eq('status', 'upcoming')
         .order('start_time', { ascending: true });
 
@@ -48,7 +77,14 @@ export default function Events({ balance, socket }: EventsProps) {
         console.error('Error loading events:', error);
         setEvents([]);
       } else {
-        setEvents(data || []);
+        const eventsWithParticipants = (data || []).map(event => ({
+          ...event,
+          participants: (event.participants || []).map((p: any) => ({
+            user_id: p.user_id,
+            username: p.profiles.username
+          }))
+        }));
+        setEvents(eventsWithParticipants);
       }
     } catch (err) {
       console.error('Error loading events:', err);
@@ -111,6 +147,14 @@ export default function Events({ balance, socket }: EventsProps) {
   const handleCloseModal = () => {
     setSelectedEvent(null);
     setModalError(null);
+  };
+
+  const handleViewRoster = (eventId: string) => {
+    setRosterEventId(eventId);
+  };
+
+  const handleCloseRoster = () => {
+    setRosterEventId(null);
   };
 
   const getTimeUntilEvent = (startTime: string) => {
@@ -228,10 +272,13 @@ export default function Events({ balance, socket }: EventsProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-lg">👥</span>
                   <span className="text-sm font-bold text-white">
-                    1 / 20 HUNTERS
+                    {event.participants.length} / {event.max_participants} HUNTERS
                   </span>
                 </div>
-                <button className="text-[10px] font-bold text-accent-orange hover:opacity-70 transition-opacity">
+                <button
+                  onClick={() => handleViewRoster(event.id)}
+                  className="text-[10px] font-bold text-accent-orange hover:opacity-70 transition-opacity"
+                >
                   + VIEW ROSTER
                 </button>
               </div>
@@ -329,6 +376,74 @@ export default function Events({ balance, socket }: EventsProps) {
                 </div>
               </motion.div>
             </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Roster Modal (Bottom Sheet) */}
+      <AnimatePresence>
+        {rosterEventId !== null && (() => {
+          const event = events.find(e => e.id === rosterEventId);
+          if (!event) return null;
+
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999]"
+                onClick={handleCloseRoster}
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed bottom-0 left-0 right-0 z-[9999] bg-[#18181B] rounded-t-3xl border-t border-white/10 p-6"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">REGISTERED OPERATIVES</h2>
+                    <p className="text-sm text-text-muted mt-1">
+                      {event.participants.length} / {event.max_participants}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCloseRoster}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {event.participants.length === 0 ? (
+                    <div className="text-center py-8 text-text-muted text-sm">
+                      No operatives registered yet
+                    </div>
+                  ) : (
+                    event.participants.map((participant) => {
+                      const isCurrentUser = currentUser?.id === participant.user_id;
+                      return (
+                        <div
+                          key={participant.user_id}
+                          className={`flex items-center gap-3 p-3 rounded-xl ${isCurrentUser ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/5'}`}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                            <User size={16} className={isCurrentUser ? 'text-green-500' : 'text-white'} />
+                          </div>
+                          <span className={`font-mono text-sm ${isCurrentUser ? 'text-green-500 font-bold' : 'text-white'}`}>
+                            {participant.username}
+                            {isCurrentUser && <span className="ml-2 text-xs font-normal">(YOU)</span>}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </motion.div>
+            </>
           );
         })()}
       </AnimatePresence>
