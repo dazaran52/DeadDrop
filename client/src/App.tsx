@@ -19,6 +19,7 @@ import ActiveHunt from './components/ActiveHunt';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Loader2, Map, User, Trophy, Shield } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { io, Socket } from 'socket.io-client';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -27,6 +28,8 @@ export default function App() {
   const [view, setView] = useState<ViewType>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
+  const [balance, setBalance] = useState<number>(0);
+  const [keys, setKeys] = useState<number>(0);
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -43,9 +46,9 @@ export default function App() {
       setAuthLoading(false);
       setIsLoggedIn(!!session);
 
-      // If logged in, set app ready after a short delay to allow socket connection
+      // If logged in, initialize socket connection
       if (session) {
-        setTimeout(() => setIsAppReady(true), 1500);
+        initSocketConnection(session.user.id);
       }
     });
 
@@ -54,16 +57,41 @@ export default function App() {
       setAuthLoading(false);
       setIsLoggedIn(!!session);
 
-      // If logged in, set app ready after a short delay
       if (session) {
-        setTimeout(() => setIsAppReady(true), 1500);
+        initSocketConnection(session.user.id);
       } else {
         setIsAppReady(false);
+        setBalance(0);
+        setKeys(0);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const initSocketConnection = async (userId: string) => {
+    const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
+      path: '/socket.io',
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
+
+    socketInstance.emit('player:identify', { playerId: userId });
+
+    // Listen for player profile sync (from profiles table)
+    socketInstance.on('player:sync', (profileData) => {
+      console.log('Получен профиль:', profileData);
+      if (profileData) {
+        setBalance(profileData.balance ?? 0);
+        setKeys(profileData.keys ?? 0);
+        setIsAppReady(true);
+      }
+    });
+
+    socketInstance.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
+  };
 
   if (authLoading) {
     return (
@@ -120,18 +148,20 @@ export default function App() {
           initialCoords={{ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy }}
           onBack={() => setView('dashboard')}
           theme={theme}
+          balance={balance}
+          keys={keys}
         />
       );
     }
 
     switch (view) {
-      case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} />;
+      case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} theme={theme} onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />;
+      }} theme={theme} onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} balance={balance} keys={keys} />;
       case 'admin': return <AdminPanel />;
-      default: return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} />;
+      default: return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
     }
   };
 

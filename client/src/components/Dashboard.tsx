@@ -10,9 +10,11 @@ import { Wallet, Key as KeyIcon, TrendingUp, Target, Shield, Clock } from 'lucid
 interface DashboardProps {
   onStartHunt: () => void;
   onToggleSuperUser: () => void;
+  balance: number;
+  keys: number;
 }
 
-export default function Dashboard({ onStartHunt, onToggleSuperUser }: DashboardProps) {
+export default function Dashboard({ onStartHunt, onToggleSuperUser, balance, keys }: DashboardProps) {
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
 
@@ -32,8 +34,8 @@ export default function Dashboard({ onStartHunt, onToggleSuperUser }: DashboardP
   };
 
   const stats = [
-    { label: 'EQUITY:', value: '10,000 CZK', icon: Wallet },
-    { label: 'KEYS:', value: '3', icon: KeyIcon },
+    { label: 'EQUITY:', value: `${balance.toLocaleString()} CZK`, icon: Wallet },
+    { label: 'KEYS:', value: keys.toString(), icon: KeyIcon },
     { label: 'SESSION RANK:', value: '#1,230', icon: TrendingUp },
   ];
 

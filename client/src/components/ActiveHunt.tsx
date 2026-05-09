@@ -16,11 +16,13 @@ interface ActiveHuntProps {
   initialCoords: { latitude: number; longitude: number; accuracy: number };
   onBack: () => void;
   theme: 'dark' | 'light';
+  balance: number;
+  keys: number;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -28,7 +30,6 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [socket, setSocket] = useState<Socket | null>(null);
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
-  const [profile, setProfile] = useState({ keys: 0, balance: 0 });
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -212,16 +213,16 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
         setTimeout(() => setError(null), 3000);
       });
 
-      // Listen for player profile sync (from profiles table)
-      socketInstance.on('player:sync', (profileData) => {
-        console.log('Получен профиль:', profileData);
-        if (profileData) {
-          setProfile({
-            keys: profileData.keys ?? 0,
-            balance: profileData.balance ?? 0
-          });
-        }
-      });
+      // Listen for player profile sync (from profiles table) - now handled in App.tsx
+      // socketInstance.on('player:sync', (profileData) => {
+      //   console.log('Получен профиль:', profileData);
+      //   if (profileData) {
+      //     setProfile({
+      //       keys: profileData.keys ?? 0,
+      //       balance: profileData.balance ?? 0
+      //     });
+      //   }
+      // });
 
       // Listen for no keys error
       socketInstance.on('error:no_keys', (error) => {
@@ -565,10 +566,10 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                       <Key className="w-5 h-5 text-white/70" />
-                      <span className="text-2xl font-black text-white">{profile.keys}</span>
+                      <span className="text-2xl font-black text-white">{keys}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white/70">{profile.balance} Kč</span>
+                      <span className="text-lg font-bold text-white/70">{balance} Kč</span>
                     </div>
                   </div>
                 </div>

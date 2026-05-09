@@ -30,12 +30,14 @@ interface ProfileProps {
   onLogout: () => void;
   theme: 'dark' | 'light';
   onThemeToggle: () => void;
+  balance: number;
+  keys: number;
 }
 
-export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps) {
+export default function Profile({ onLogout, theme, onThemeToggle, balance, keys }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [userName, setUserName] = useState('GHOST_USER');
-  const keys = [
+  const keySlots = [
     { label: 'KEY_ALPHA :: LETNA', status: 'acquired', id: '0x1' },
     { label: 'KEY_SIGMA :: ANDEL', status: 'acquired', id: '0x2' },
     { label: 'EMPTY_SLOT', status: 'empty', id: '0x3' },
@@ -204,28 +206,26 @@ export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps
         </div>
         
         <div className="grid grid-cols-2 gap-4">
-          {keys.map((key) => (
-            <div 
+          {keySlots.map((key) => (
+            <div
               key={key.id}
-              className={`p-4 border transition-all relative rounded-lg ${
-                key.status === 'acquired' 
-                  ? 'border-accent-purple/40 bg-accent-purple/5' 
-                  : 'border-border-main bg-transparent opacity-40'
+              className={`premium-panel p-4 flex items-center justify-between border-l-4 ${
+                key.status === 'acquired' ? 'border-l-accent-purple' : 'border-l-border-main'
               }`}
             >
-              {key.status === 'acquired' && (
-                <div className="absolute top-2 right-2">
-                   <CheckCircle2 className="w-3 h-3 text-accent-purple" />
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  key.status === 'acquired' ? 'bg-accent-purple/20' : 'bg-white/5'
+                }`}>
+                  <KeyIcon className={`w-5 h-5 ${key.status === 'acquired' ? 'text-accent-purple' : 'text-text-muted'}`} />
                 </div>
-              )}
-              <div className="flex flex-col gap-3">
-                <div className={`w-10 h-10 flex items-center justify-center border rounded-md ${key.status === 'acquired' ? 'border-accent-purple/30 bg-accent-purple/10' : 'border-border-main'}`}>
-                   <KeyIcon className={`w-5 h-5 ${key.status === 'acquired' ? 'text-accent-purple' : 'text-text-muted'}`} />
-                </div>
-                <span className={`text-[10px] font-bold uppercase tracking-tight leading-tight ${key.status === 'acquired' ? 'text-text-main' : 'text-text-muted'}`}>
+                <span className={`text-sm font-mono ${key.status === 'acquired' ? 'text-text-main' : 'text-text-muted'}`}>
                   {key.label}
                 </span>
               </div>
+              {key.status === 'acquired' && (
+                <CheckCircle2 className="w-5 h-5 text-accent-purple" />
+              )}
             </div>
           ))}
         </div>
