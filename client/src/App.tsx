@@ -26,11 +26,12 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAppReady, setIsAppReady] = useState(false);
-  const [view, setView] = useState<ViewType>('dashboard');
+  const [view, setView] = useState<ViewType>('events');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [keys, setKeys] = useState<number>(0);
+  const [showError, setShowError] = useState(false);
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -40,6 +41,17 @@ export default function App() {
       document.documentElement.classList.remove('light');
     }
   }, [theme]);
+
+  useEffect(() => {
+    if (error || !coords) {
+      const timeout = setTimeout(() => {
+        setShowError(true);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    } else {
+      setShowError(false);
+    }
+  }, [error, coords]);
 
   useEffect(() => {
     // Check for existing session on mount
@@ -151,7 +163,7 @@ export default function App() {
     );
   }
 
-  if (error || !coords) {
+  if ((error || !coords) && showError) {
     return (
       <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center p-8 text-center space-y-8">
         <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-border-main shadow-2xl">
@@ -161,7 +173,7 @@ export default function App() {
           <h1 className="text-text-main font-black text-4xl tracking-tighter uppercase leading-none">Uplink.Failure</h1>
           <p className="text-text-muted font-medium text-xs uppercase tracking-widest max-w-[240px]">Geospatial authorization is required to access the central terminal.</p>
         </div>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="px-10 py-4 bg-white text-black text-xs font-black uppercase tracking-widest hover:bg-gray-100 transition-colors rounded-xl"
         >
@@ -226,9 +238,6 @@ export default function App() {
 
           {/* Global Floating Pill Navigation - Always Visible */}
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[9999]">
-            <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
-              <Trophy size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
-            </button>
             <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'events' ? 'opacity-100 text-accent-orange scale-110' : 'opacity-50'}`}>
               <Trophy size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
             </button>
