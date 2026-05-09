@@ -209,6 +209,12 @@ export default function App() {
         <ActiveHunt
           initialCoords={{ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy }}
           onBack={() => setView('events')}
+          onNavigate={(view, operationId) => {
+            if (operationId) {
+              setActiveOperationId(operationId);
+            }
+            setView(view as any);
+          }}
           theme={theme}
           balance={balance}
           keys={keys}

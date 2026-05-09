@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase';
 interface ActiveHuntProps {
   initialCoords: { latitude: number; longitude: number; accuracy: number };
   onBack: () => void;
+  onNavigate?: (view: string, operationId?: string) => void;
   theme: 'dark' | 'light';
   balance: number;
   keys: number;
@@ -25,14 +26,14 @@ interface ActiveHuntProps {
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [localIsAwaitingDeployment, setLocalIsAwaitingDeployment] = useState(false);
-  const [nearestEventTitle, setNearestEventTitle] = useState<string | null>(null);
+  const [registeredEventsData, setRegisteredEventsData] = useState<Array<{ id: string; title: string; start_time: string }>>([]);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -59,14 +60,14 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
 
             if (events && events.length > 0) {
               setLocalIsAwaitingDeployment(true);
-              setNearestEventTitle(events[0].title);
+              setRegisteredEventsData(events);
             } else {
               setLocalIsAwaitingDeployment(false);
-              setNearestEventTitle(null);
+              setRegisteredEventsData([]);
             }
           } else {
             setLocalIsAwaitingDeployment(false);
-            setNearestEventTitle(null);
+            setRegisteredEventsData([]);
           }
         } catch (err) {
           console.error('Error checking registered events:', err);
@@ -452,9 +453,16 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
 
   return (
     <div className="absolute inset-0 w-full h-screen bg-black flex flex-col overflow-hidden">
+      {/* Operation Header */}
+      <div className="absolute top-0 w-full bg-black/90 border-b border-white/10 py-3 text-center z-[9999]">
+        <span className="text-white font-mono text-sm font-bold uppercase tracking-wider">
+          {activeOperationId ? `OPERATION: ${activeOperationId}` : 'GLOBAL MAP'}
+        </span>
+      </div>
+
       {/* Observer Mode Blur Overlay */}
       {activeOperationId === null && (
-        <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center px-4">
           {!localIsAwaitingDeployment ? (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
@@ -464,16 +472,42 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
               <p className="text-sm text-white/60 font-medium">You haven't joined any events. Go to the Lobby to browse operations.</p>
             </div>
           ) : (
-            <div className="text-center space-y-4 px-8">
-              <div className="w-16 h-16 rounded-full bg-accent-orange/10 flex items-center justify-center border border-accent-orange/30 mx-auto">
-                <Clock className="w-8 h-8 text-accent-orange/60" />
-              </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Awaiting Deployment</h2>
-              {nearestEventTitle && (
-                <p className="text-sm text-white/60 font-medium">
-                  You are registered for <span className="text-accent-orange font-bold">{nearestEventTitle}</span>. You can deploy to the zone 5 minutes before it starts.
-                </p>
-              )}
+            <div className="w-full max-w-md space-y-4 max-h-[70vh] overflow-y-auto">
+              <h2 className="text-xl font-black text-white tracking-tighter uppercase text-center mb-4">Your Registered Events</h2>
+              {registeredEventsData
+                .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                .map((event) => {
+                  const now = new Date();
+                  const start = new Date(event.start_time);
+                  const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
+                  const canDeploy = diffMinutes <= 5;
+
+                  return (
+                    <div key={event.id} className="bg-[#1C1C1E] rounded-2xl p-4 space-y-3 border border-white/10">
+                      <h3 className="text-lg font-black text-white">{event.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-accent-orange" />
+                        <span className="text-xs font-mono text-white/60">
+                          {diffMinutes < 60
+                            ? `${Math.floor(diffMinutes)} MIN`
+                            : diffMinutes < 1440
+                            ? `${Math.floor(diffMinutes / 60)} HOURS`
+                            : `${Math.floor(diffMinutes / 1440)} DAYS`}
+                        </span>
+                      </div>
+                      {canDeploy ? (
+                        <button
+                          onClick={() => onNavigate?.('hunt', event.id)}
+                          className="w-full py-3 bg-green-500 text-white font-black rounded-full hover:brightness-110 active:scale-[0.98] transition-all animate-pulse"
+                        >
+                          START EVENT
+                        </button>
+                      ) : (
+                        <p className="text-xs text-white/40 text-center">Deployment opens at T-minus 5m</p>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
@@ -643,7 +677,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
               }}
             />
             
-            <div className="absolute top-6 left-4 right-4 z-20">
+            <div className="absolute top-20 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
@@ -667,13 +701,6 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                   </div>
                 </div>
               </div>
-              <div className="absolute top-24 left-4">
-                <div className="bg-black/60 backdrop-blur-md text-white/50 text-xs px-2 py-1 rounded border border-white/10 z-50">
-                  <span className="font-mono uppercase tracking-widest">
-                    {activeOperationId ? `OP: ${activeOperationId}` : 'FREE ROAMING'}
-                  </span>
-                </div>
-              </div>
             </div>
           </motion.div>
         )}
@@ -695,7 +722,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute bottom-[120px] right-4 z-[9999] flex flex-col gap-4">
+      <div className="absolute !bottom-32 right-4 !z-[99999] flex flex-col gap-4">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button

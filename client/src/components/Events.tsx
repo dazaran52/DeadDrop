@@ -43,6 +43,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'time' | 'entry' | 'pool'>('time');
 
   const canDeploy = (startTime: string): boolean => {
     const now = new Date();
@@ -58,6 +59,20 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
       return;
     }
     onNavigate?.('hunt', eventId);
+  };
+
+  const getSortedEvents = () => {
+    const sorted = [...events];
+    switch (filter) {
+      case 'time':
+        return sorted.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      case 'entry':
+        return sorted.sort((a, b) => a.entry_fee - b.entry_fee);
+      case 'pool':
+        return sorted.sort((a, b) => b.pool - a.pool);
+      default:
+        return sorted;
+    }
   };
 
   useEffect(() => {
@@ -200,28 +215,28 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
       socket.emit('event:join', { eventId: selectedEvent });
 
-      socket.once('event:join:success', () => {
-        setIsJoining(false);
-        setRegisteredEvents(prev => new Set([...prev, selectedEvent]));
+      socket.once('event:join_response', (response: { success: boolean; error?: string }) => {
+        if (response.success) {
+          setIsJoining(false);
+          setRegisteredEvents(prev => new Set([...prev, selectedEvent]));
 
-        // Update local participants array immediately
-        setEvents(prev => prev.map(event => {
-          if (event.id === selectedEvent && currentUser) {
-            return {
-              ...event,
-              participants: [...event.participants, { user_id: currentUser.id, username: currentUser.username || 'Unknown' }]
-            };
-          }
-          return event;
-        }));
+          // Update local participants array immediately
+          setEvents(prev => prev.map(event => {
+            if (event.id === selectedEvent && currentUser) {
+              return {
+                ...event,
+                participants: [...event.participants, { user_id: currentUser.id, username: currentUser.username || 'Unknown' }]
+              };
+            }
+            return event;
+          }));
 
-        setSelectedEvent(null);
-        loadRegisteredEvents();
-      });
-
-      socket.once('event:join:error', (error) => {
-        setIsJoining(false);
-        setModalError(error.message || 'Failed to join event');
+          setSelectedEvent(null);
+          loadRegisteredEvents();
+        } else {
+          setIsJoining(false);
+          setModalError(response.error || 'Failed to join event');
+        }
       });
     } catch (err) {
       setIsJoining(false);
@@ -280,6 +295,27 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
         )}
       </AnimatePresence>
 
+      {/* Filter Tabs */}
+      <div className="flex gap-2 bg-white/5 rounded-xl p-1">
+        {[
+          { key: 'time' as const, label: 'TIME' },
+          { key: 'entry' as const, label: 'ENTRY' },
+          { key: 'pool' as const, label: 'POOL' },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+              filter === tab.key
+                ? 'bg-accent-orange text-white'
+                : 'text-white/40 hover:text-white/60'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -327,7 +363,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
         </div>
       ) : (
         <div className="space-y-6">
-          {events.map((event, index) => (
+          {getSortedEvents().map((event, index) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, y: 20 }}
@@ -343,6 +379,11 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                     {getTimeUntilEvent(event.start_time).text}
                   </span>
                 </div>
+                {registeredEvents.has(event.id) && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
+                    ENTERED ✓
+                  </span>
+                )}
               </div>
 
               {/* Title */}
@@ -395,16 +436,22 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
               {/* Enter Button */}
               {registeredEvents.has(event.id) ? (
-                <button
-                  onClick={() => handleDeploy(event.id, event.start_time)}
-                  className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
-                    canDeploy(event.start_time)
-                      ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10 border-white/10'
-                      : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
-                  }`}
-                >
-                  {canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => handleDeploy(event.id, event.start_time)}
+                    className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
+                      canDeploy(event.start_time)
+                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-green-500/10 border-white/10 animate-pulse'
+                        : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
+                    }`}
+                    disabled={!canDeploy(event.start_time)}
+                  >
+                    {canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
+                  </button>
+                  {!canDeploy(event.start_time) && (
+                    <p className="text-xs text-white/40 text-center font-medium">Deployment opens at T-minus 5m</p>
+                  )}
+                </div>
               ) : (
                 <button
                   onClick={() => handleEnterEvent(event.id)}
