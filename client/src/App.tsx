@@ -46,8 +46,9 @@ export default function App() {
       setAuthLoading(false);
       setIsLoggedIn(!!session);
 
-      // If logged in, initialize socket connection
+      // If logged in, load initial data from Supabase
       if (session) {
+        loadInitialData(session.user.id);
         initSocketConnection(session.user.id);
       }
     });
@@ -58,6 +59,7 @@ export default function App() {
       setIsLoggedIn(!!session);
 
       if (session) {
+        loadInitialData(session.user.id);
         initSocketConnection(session.user.id);
       } else {
         setIsAppReady(false);
@@ -69,6 +71,31 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const loadInitialData = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('balance, keys')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Supabase DB Error:', error);
+        setIsAppReady(true); // Still allow app to proceed
+        return;
+      }
+
+      if (data) {
+        setBalance(data.balance ?? 0);
+        setKeys(data.keys ?? 0);
+        setIsAppReady(true);
+      }
+    } catch (err) {
+      console.error('Error loading initial data:', err);
+      setIsAppReady(true); // Still allow app to proceed
+    }
+  };
+
   const initSocketConnection = async (userId: string) => {
     const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
       path: '/socket.io',
@@ -78,20 +105,12 @@ export default function App() {
 
     socketInstance.emit('player:identify', { playerId: userId });
 
-    // Failsafe timeout - force app ready after 3 seconds
-    const failsafeTimeout = setTimeout(() => {
-      console.log('Failsafe timeout triggered - forcing app ready');
-      setIsAppReady(true);
-    }, 3000);
-
-    // Listen for player profile sync (from profiles table)
+    // Listen for player profile sync (real-time updates only)
     socketInstance.on('player:sync', (profileData) => {
-      console.log('Получен профиль:', profileData);
-      clearTimeout(failsafeTimeout);
+      console.log('Real-time profile update:', profileData);
       if (profileData) {
         setBalance(profileData.balance ?? 0);
         setKeys(profileData.keys ?? 0);
-        setIsAppReady(true);
       }
     });
 
