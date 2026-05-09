@@ -78,9 +78,16 @@ export default function App() {
 
     socketInstance.emit('player:identify', { playerId: userId });
 
+    // Failsafe timeout - force app ready after 3 seconds
+    const failsafeTimeout = setTimeout(() => {
+      console.log('Failsafe timeout triggered - forcing app ready');
+      setIsAppReady(true);
+    }, 3000);
+
     // Listen for player profile sync (from profiles table)
     socketInstance.on('player:sync', (profileData) => {
       console.log('Получен профиль:', profileData);
+      clearTimeout(failsafeTimeout);
       if (profileData) {
         setBalance(profileData.balance ?? 0);
         setKeys(profileData.keys ?? 0);
@@ -92,6 +99,9 @@ export default function App() {
       console.log('Socket disconnected');
     });
   };
+
+  console.log('Session:', isLoggedIn);
+  console.log('App Ready:', isAppReady);
 
   if (authLoading) {
     return (
