@@ -187,27 +187,46 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
     setModalError(null);
   };
 
-  const handleConfirmRegistration = () => {
-    if (!socket || selectedEvent === null) return;
-
-    const event = events.find(e => e.id === selectedEvent);
-    if (!event) return;
-
+  const handleConfirmJoin = async () => {
     setIsJoining(true);
     setModalError(null);
 
-    socket.emit('event:join', { eventId: selectedEvent });
-
-    socket.on('event:join_response', (response: { success: boolean; error?: string }) => {
-      setIsJoining(false);
-
-      if (response.success) {
-        setRegisteredEvents(prev => new Set(prev).add(selectedEvent));
-        setSelectedEvent(null);
-      } else {
-        setModalError(response.error || 'Failed to join event');
+    try {
+      if (!socket) {
+        setModalError('Socket not connected');
+        setIsJoining(false);
+        return;
       }
-    });
+
+      socket.emit('event:join', { eventId: selectedEvent });
+
+      socket.on('event:join:success', () => {
+        setIsJoining(false);
+        setRegisteredEvents(prev => new Set([...prev, selectedEvent]));
+
+        // Update local participants array immediately
+        setEvents(prev => prev.map(event => {
+          if (event.id === selectedEvent && currentUser) {
+            return {
+              ...event,
+              participants: [...event.participants, { user_id: currentUser.id, username: currentUser.username || 'Unknown' }]
+            };
+          }
+          return event;
+        }));
+
+        setSelectedEvent(null);
+        loadRegisteredEvents();
+      });
+
+      socket.on('event:join:error', (error) => {
+        setIsJoining(false);
+        setModalError(error.message || 'Failed to join event');
+      });
+    } catch (err) {
+      setIsJoining(false);
+      setModalError('Failed to join event');
+    }
   };
 
   const handleCloseModal = () => {
@@ -254,7 +273,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-4 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
+            className="absolute top-20 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
           >
             {toastMessage}
           </motion.div>
@@ -380,10 +399,10 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                   className={`w-full py-4 font-black text-lg rounded-full border border-white/10 transition-all ${
                     canDeploy(event.start_time)
                       ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10'
-                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      : 'bg-slate-800 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  DEPLOY TO ZONE
+                  {canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : 'REGISTERED ✓ (DEPLOY LOCKED)'}
                 </button>
               ) : (
                 <button
@@ -452,7 +471,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                   </button>
                   {!insufficientFunds && !modalError && (
                     <button
-                      onClick={handleConfirmRegistration}
+                      onClick={handleConfirmJoin}
                       disabled={isJoining}
                       className={`flex-1 py-3 font-bold rounded-full transition-colors ${isJoining ? 'bg-green-600 text-white/70 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}`}
                     >

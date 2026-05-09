@@ -435,6 +435,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                   })()}
                 </p>
               )}
+              <p className="text-xs text-white/40 font-medium">RETURN TO LOBBY TO STANDBY</p>
             </div>
           ) : null}
         </div>
@@ -628,10 +629,12 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                   </div>
                 </div>
               </div>
-              <div className="absolute top-16 left-4">
-                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                  {activeOperationId ? `OP: ${activeOperationId}` : 'FREE ROAMING'}
-                </span>
+              <div className="absolute top-24 left-4">
+                <div className="bg-black/60 backdrop-blur-md text-white/50 text-xs px-2 py-1 rounded border border-white/10 z-50">
+                  <span className="font-mono uppercase tracking-widest">
+                    {activeOperationId ? `OP: ${activeOperationId}` : 'FREE ROAMING'}
+                  </span>
+                </div>
               </div>
             </div>
           </motion.div>
