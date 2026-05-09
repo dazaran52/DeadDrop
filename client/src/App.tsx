@@ -32,6 +32,7 @@ export default function App() {
   const [balance, setBalance] = useState<number>(0);
   const [keys, setKeys] = useState<number>(0);
   const [showError, setShowError] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function App() {
     if (error || !coords) {
       const timeout = setTimeout(() => {
         setShowError(true);
-      }, 2000);
+      }, 5000);
       return () => clearTimeout(timeout);
     } else {
       setShowError(false);
@@ -118,6 +119,16 @@ export default function App() {
 
     socketInstance.emit('player:identify', { playerId: userId });
 
+    socketInstance.on('connect', () => {
+      setIsSocketConnected(true);
+      console.log('Socket connected');
+    });
+
+    socketInstance.on('disconnect', () => {
+      setIsSocketConnected(false);
+      console.log('Socket disconnected');
+    });
+
     // Listen for player profile sync (real-time updates only)
     socketInstance.on('player:sync', (profileData) => {
       console.log('Real-time profile update:', profileData);
@@ -125,10 +136,6 @@ export default function App() {
         setBalance(profileData.balance ?? 0);
         setKeys(profileData.keys ?? 0);
       }
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected');
     });
   };
 
@@ -198,7 +205,7 @@ export default function App() {
 
     switch (view) {
       case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
-      case 'events': return <Events />;
+      case 'events': return <Events balance={balance} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
@@ -218,10 +225,19 @@ export default function App() {
         </div>
 
         <div className="flex-1 flex flex-col pt-4 lg:pt-12 relative overflow-hidden">
+          {/* Reconnecting Badge */}
+          {!isSocketConnected && isAppReady && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[70] bg-red-500/20 border border-red-500/50 px-4 py-2 rounded-full">
+              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Reconnecting...</span>
+            </div>
+          )}
+
           {view !== 'hunt' && (
             <header className="px-6 flex justify-between items-end border-b border-white/10 pb-4 mb-2">
               <div className="flex flex-col">
-                <span className="text-2xl font-black uppercase tracking-tighter text-white">OPERATIVE DOSSIER</span>
+                <span className="text-2xl font-black uppercase tracking-tighter text-white">
+                  {view === 'events' ? 'NEXUS LOBBY' : view === 'profile' ? 'OPERATIVE DOSSIER' : 'NEXUS LOBBY'}
+                </span>
               </div>
               <div className="flex flex-col text-right">
                 <span className="text-[10px] uppercase tracking-widest text-white/50 font-bold">Latency</span>

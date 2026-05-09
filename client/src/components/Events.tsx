@@ -5,9 +5,13 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, TrendingUp, Target, X } from 'lucide-react';
+import { Clock, TrendingUp, Target, X, Wallet, Activity } from 'lucide-react';
 
-export default function Events() {
+interface EventsProps {
+  balance: number;
+}
+
+export default function Events({ balance }: EventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set());
 
@@ -52,6 +56,28 @@ export default function Events() {
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-32 bg-bg-deep">
+      {/* Hero Section - Statistics */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+          <Wallet className="w-5 h-5 text-green-500" />
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">YOUR EQUITY</span>
+          <span className="text-lg font-black text-green-500 tracking-tighter">{balance.toLocaleString()} Kč</span>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+          <div className="relative">
+            <Activity className="w-5 h-5 text-red-500" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+          </div>
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">LIVE RUNNERS</span>
+          <span className="text-lg font-black text-white tracking-tighter">142</span>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+          <TrendingUp className="w-5 h-5 text-blue-500" />
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">GLOBAL BANK</span>
+          <span className="text-lg font-black text-white tracking-tighter">125K</span>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col space-y-1">
         <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
