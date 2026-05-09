@@ -208,7 +208,7 @@ export default function App() {
 
     switch (view) {
       case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
-      case 'events': return <Events balance={balance} socket={socketInstance} />;
+      case 'events': return <Events balance={balance} socket={socketInstance} onNavigate={(view) => setView(view as any)} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);

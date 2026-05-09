@@ -12,6 +12,7 @@ import { Socket } from 'socket.io-client';
 interface EventsProps {
   balance: number;
   socket: Socket | null;
+  onNavigate?: (view: string) => void;
 }
 
 interface Participant {
@@ -30,7 +31,7 @@ interface Event {
   participants: Participant[];
 }
 
-export default function Events({ balance, socket }: EventsProps) {
+export default function Events({ balance, socket, onNavigate }: EventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -336,10 +337,10 @@ export default function Events({ balance, socket }: EventsProps) {
               {/* Enter Button */}
               {registeredEvents.has(event.id) ? (
                 <button
-                  disabled
-                  className="w-full py-4 bg-gray-700 text-gray-400 font-black text-lg rounded-full cursor-not-allowed border border-white/10"
+                  onClick={() => onNavigate?.('map')}
+                  className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
                 >
-                  REGISTERED ✓
+                  [ MAP UPLINK ]
                 </button>
               ) : (
                 <button
@@ -442,7 +443,7 @@ export default function Events({ balance, socket }: EventsProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999]"
+                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[99999]"
                 onClick={handleCloseRoster}
               />
               <motion.div
@@ -450,7 +451,7 @@ export default function Events({ balance, socket }: EventsProps) {
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed bottom-0 left-0 right-0 z-[9999] bg-[#18181B] rounded-t-3xl border-t border-white/10 p-6"
+                className="fixed bottom-0 left-0 right-0 z-[99999] bg-[#18181B] rounded-t-3xl border-t border-white/10 p-6"
               >
                 <div className="flex justify-between items-center mb-6">
                   <div>
@@ -467,7 +468,7 @@ export default function Events({ balance, socket }: EventsProps) {
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-64 overflow-y-auto pb-8">
                   {event.participants.length === 0 ? (
                     <div className="text-center py-8 text-text-muted text-sm">
                       No operatives registered yet
