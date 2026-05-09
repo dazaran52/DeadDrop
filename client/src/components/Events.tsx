@@ -42,7 +42,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
   const [rosterEventId, setRosterEventId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [buttonMessage, setButtonMessage] = useState<string | null>(null);
 
   const canDeploy = (startTime: string): boolean => {
     const now = new Date();
@@ -53,8 +53,8 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
   const handleDeploy = (eventId: string, startTime: string) => {
     if (!canDeploy(startTime)) {
-      setToastMessage('Deployment authorized 5 minutes before T-Zero.');
-      setTimeout(() => setToastMessage(null), 3000);
+      setButtonMessage(eventId);
+      setTimeout(() => setButtonMessage(null), 3000);
       return;
     }
     onNavigate?.('hunt', eventId);
@@ -266,20 +266,6 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 bg-bg-deep relative">
-      {/* Toast Message - Bottom */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
-          >
-            {toastMessage}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -403,7 +389,9 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                       : 'bg-transparent border-dashed border-white/20 text-white/50 font-mono text-sm tracking-widest cursor-not-allowed'
                   }`}
                 >
-                  {canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : '[ STANDBY ] T-ZERO PENDING'}
+                  {buttonMessage === event.id ? (
+                    <span className="text-red-500">[ ACCESS DENIED: WAIT FOR T-5 ]</span>
+                  ) : canDeploy(event.start_time) ? 'DEPLOY TO ZONE' : '[ STANDBY ] T-ZERO PENDING'}
                 </button>
               ) : (
                 <button

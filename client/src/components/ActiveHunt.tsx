@@ -31,6 +31,43 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [localIsAwaitingDeployment, setLocalIsAwaitingDeployment] = useState(false);
+
+  // Local fetch to check if user has registered events when in observer mode
+  useEffect(() => {
+    if (activeOperationId === null) {
+      const checkRegisteredEvents = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Check if user is registered to any upcoming event
+          const { data: participants } = await supabase
+            .from('event_participants')
+            .select('event_id')
+            .eq('user_id', user.id);
+
+          if (participants && participants.length > 0) {
+            // Check if any of these events are upcoming
+            const eventIds = participants.map(p => p.event_id);
+            const { data: events } = await supabase
+              .from('events')
+              .select('id, start_time')
+              .in('id', eventIds)
+              .eq('status', 'upcoming');
+
+            if (events && events.length > 0) {
+              setLocalIsAwaitingDeployment(true);
+            }
+          }
+        } catch (err) {
+          console.error('Error checking registered events:', err);
+        }
+      };
+
+      checkRegisteredEvents();
+    }
+  }, [activeOperationId]);
 
   // Calculate time to nearest event
   const getNearestEventTime = () => {
@@ -410,7 +447,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       {/* Observer Mode Blur Overlay */}
       {activeOperationId === null && (
         <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center">
-          {!isAwaitingDeployment ? (
+          {!localIsAwaitingDeployment ? (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
                 <Map className="w-8 h-8 text-white/40" />
@@ -424,18 +461,6 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                 <Clock className="w-8 h-8 text-accent-orange/60" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tighter uppercase">AWAITING DEPLOYMENT. STANDBY IN LOBBY.</h2>
-              {nearestEvent && (
-                <p className="text-sm text-white/60 font-mono">
-                  NEXT OP IN: {(() => {
-                    const now = new Date();
-                    const start = new Date(nearestEvent.start_time);
-                    const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
-                    if (diffMinutes < 60) return `${Math.floor(diffMinutes)} MIN`;
-                    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} HOURS`;
-                    return `${Math.floor(diffMinutes / 1440)} DAYS`;
-                  })()}
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -657,7 +682,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute bottom-36 right-4 flex flex-col gap-4 z-50">
+      <div className="absolute bottom-40 right-4 flex flex-col gap-4 z-50">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
