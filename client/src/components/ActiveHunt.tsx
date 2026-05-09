@@ -18,11 +18,12 @@ interface ActiveHuntProps {
   theme: 'dark' | 'light';
   balance: number;
   keys: number;
+  activeOperationId?: string | null;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -569,6 +570,11 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
                     <span className="text-xs font-black text-white/50 uppercase tracking-wider">M</span>
                   </div>
                 </div>
+              </div>
+              <div className="absolute top-16 left-4">
+                <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">
+                  {activeOperationId ? `OP: ${activeOperationId}` : 'FREE ROAMING'}
+                </span>
               </div>
             </div>
           </motion.div>

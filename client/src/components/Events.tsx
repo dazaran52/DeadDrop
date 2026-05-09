@@ -12,7 +12,7 @@ import { Socket } from 'socket.io-client';
 interface EventsProps {
   balance: number;
   socket: Socket | null;
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: string, operationId?: string) => void;
 }
 
 interface Participant {
@@ -337,7 +337,7 @@ export default function Events({ balance, socket, onNavigate }: EventsProps) {
               {/* Enter Button */}
               {registeredEvents.has(event.id) ? (
                 <button
-                  onClick={() => onNavigate?.('map')}
+                  onClick={() => onNavigate?.('map', event.id)}
                   className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
                 >
                   [ MAP UPLINK ]
