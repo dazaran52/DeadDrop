@@ -400,25 +400,17 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
       {/* Header */}
       <AnimatePresence>
         {trackingState !== 'VAULT_REACHED' && (
-          <motion.div 
+          <motion.div
             initial={{ y: -50 }}
             animate={{ y: 0 }}
             exit={{ y: -50 }}
             className="p-4 flex items-center justify-between border-b border-border-main bg-bg-deep/80 backdrop-blur-md z-20"
           >
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={onBack}
-                className="p-2 bg-white/5 border border-border-main rounded text-text-main hover:bg-white/10 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] uppercase font-bold tracking-widest text-text-muted">Operation</span>
-                <span className="text-xs font-black text-text-main uppercase tracking-tighter italic">
-                  {trackingState === 'OUT_OF_SECTOR' ? 'Approach' : 'Interception'}
-                </span>
-              </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase font-bold tracking-widest text-text-muted">Operation</span>
+              <span className="text-xs font-black text-text-main uppercase tracking-tighter italic">
+                {trackingState === 'OUT_OF_SECTOR' ? 'Approach' : 'Interception'}
+              </span>
             </div>
 
             <div className="flex gap-2">

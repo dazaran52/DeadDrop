@@ -230,7 +230,7 @@ export default function App() {
               <Trophy size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
             </button>
             <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'events' ? 'opacity-100 text-accent-orange scale-110' : 'opacity-50'}`}>
-              <Target size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
+              <Trophy size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
             </button>
             <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
               <Map size={28} strokeWidth={view === 'hunt' ? 3 : 2} />

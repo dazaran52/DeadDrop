@@ -3,10 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { motion } from 'framer-motion';
-import { Clock, TrendingUp, Target } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, TrendingUp, Target, X } from 'lucide-react';
 
 export default function Events() {
+  const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
+  const [registeredEvents, setRegisteredEvents] = useState<Set<number>>(new Set());
+
   const mockEvents = [
     {
       id: 1,
@@ -31,8 +35,23 @@ export default function Events() {
     },
   ];
 
+  const handleEnterEvent = (eventId: number) => {
+    setSelectedEvent(eventId);
+  };
+
+  const handleConfirmRegistration = () => {
+    if (selectedEvent !== null) {
+      setRegisteredEvents(prev => new Set(prev).add(selectedEvent));
+      setSelectedEvent(null);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedEvent(null);
+  };
+
   return (
-    <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-24 bg-bg-deep">
+    <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-32 bg-bg-deep">
       {/* Header */}
       <div className="flex flex-col space-y-1">
         <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
@@ -92,12 +111,75 @@ export default function Events() {
             </div>
 
             {/* Enter Button */}
-            <button className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10">
-              ENTER EVENT
-            </button>
+            {registeredEvents.has(event.id) ? (
+              <button
+                disabled
+                className="w-full py-4 bg-gray-700 text-gray-400 font-black text-lg rounded-full cursor-not-allowed border border-white/10"
+              >
+                REGISTERED ✓
+              </button>
+            ) : (
+              <button
+                onClick={() => handleEnterEvent(event.id)}
+                className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
+              >
+                ENTER EVENT
+              </button>
+            )}
           </motion.div>
         ))}
       </div>
+
+      {/* Payment Modal */}
+      <AnimatePresence>
+        {selectedEvent !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
+            onClick={handleCloseModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1C1C1E] rounded-3xl p-6 w-full max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">CONFIRM ENTRY</h2>
+                  <p className="text-sm text-text-muted mt-2">
+                    Deduct {mockEvents.find(e => e.id === selectedEvent)?.entry} CZK from your balance?
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseModal}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCloseModal}
+                  className="flex-1 py-3 bg-gray-700 text-white font-bold rounded-full hover:bg-gray-600 transition-colors"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleConfirmRegistration}
+                  className="flex-1 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition-colors"
+                >
+                  CONFIRM
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
