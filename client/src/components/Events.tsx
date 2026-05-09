@@ -33,6 +33,7 @@ export default function Events({ balance, socket }: EventsProps) {
 
   useEffect(() => {
     loadEvents();
+    loadRegisteredEvents();
   }, []);
 
   const loadEvents = async () => {
@@ -54,6 +55,28 @@ export default function Events({ balance, socket }: EventsProps) {
       setEvents([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRegisteredEvents = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('event_participants')
+        .select('event_id')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error loading registered events:', error);
+        return;
+      }
+
+      const registeredIds = data?.map(p => p.event_id) || [];
+      setRegisteredEvents(new Set(registeredIds));
+    } catch (err) {
+      console.error('Error loading registered events:', err);
     }
   };
 
@@ -198,6 +221,19 @@ export default function Events({ balance, socket }: EventsProps) {
                     {event.entry_fee.toLocaleString()} Kč
                   </span>
                 </div>
+              </div>
+
+              {/* FOMO Counter */}
+              <div className="flex items-center justify-between bg-black/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">👥</span>
+                  <span className="text-sm font-bold text-white">
+                    1 / 20 HUNTERS
+                  </span>
+                </div>
+                <button className="text-[10px] font-bold text-accent-orange hover:opacity-70 transition-opacity">
+                  + VIEW ROSTER
+                </button>
               </div>
 
               {/* Enter Button */}
