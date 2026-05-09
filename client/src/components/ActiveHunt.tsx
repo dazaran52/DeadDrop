@@ -482,7 +482,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {/* Operation Header */}
       <div className="absolute top-0 w-full bg-black/90 border-b border-white/10 py-3 text-center z-[9999]">
         <span className="text-white font-mono text-sm font-bold uppercase tracking-wider px-4 truncate">
-          {operationTitle ? `OPERATION: ${operationTitle}` : 'GLOBAL MAP'}
+          {operationTitle || 'GLOBAL MAP'}
         </span>
       </div>
 
@@ -748,7 +748,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* FAB Buttons Container */}
-      <div className="absolute right-4 flex flex-col gap-4 bottom-[150px] md:bottom-[120px] z-[99999]">
+      <div className="absolute right-4 flex flex-col gap-4" style={{ bottom: '160px', position: 'absolute', zIndex: 99999 }}>
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button

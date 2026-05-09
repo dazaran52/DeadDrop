@@ -441,7 +441,7 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                     onClick={() => handleDeploy(event.id, event.start_time)}
                     className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
                       canDeploy(event.start_time)
-                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-green-500/10 border-white/10 animate-pulse'
+                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
                         : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
                     }`}
                     disabled={!canDeploy(event.start_time)}
