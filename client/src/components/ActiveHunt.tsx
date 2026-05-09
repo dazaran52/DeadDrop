@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy, VolumeX, Volume2, Crosshair, Map, User, Shield } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy, VolumeX, Volume2, Crosshair, Map, User, Shield, Clock } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
@@ -19,16 +19,39 @@ interface ActiveHuntProps {
   balance: number;
   keys: number;
   activeOperationId?: string | null;
+  registeredEvents?: Array<{ id: string; start_time: string }>;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys, activeOperationId, registeredEvents = [] }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
   const [isGpsError, setIsGpsError] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  // Calculate time to nearest event
+  const getNearestEventTime = () => {
+    if (registeredEvents.length === 0) return null;
+    const now = new Date();
+    const nearest = registeredEvents.reduce((nearest, event) => {
+      const eventTime = new Date(event.start_time);
+      const diff = eventTime.getTime() - now.getTime();
+      const nearestDiff = nearest ? new Date(nearest.start_time).getTime() - now.getTime() : Infinity;
+      return diff < nearestDiff ? event : nearest;
+    }, null as { id: string; start_time: string } | null);
+    return nearest;
+  };
+
+  const nearestEvent = getNearestEventTime();
+  const hasRegisteredEvents = registeredEvents.length > 0;
+  const canDeployToNearest = nearestEvent ? (() => {
+    const now = new Date();
+    const start = new Date(nearestEvent.start_time);
+    const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
+    return diffMinutes <= 5;
+  })() : false;
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
   const [error, setError] = useState<string | null>(null);
@@ -383,6 +406,40 @@ export default function ActiveHunt({ initialCoords, onBack, theme, balance, keys
 
   return (
     <div className="absolute inset-0 w-full h-screen bg-black flex flex-col overflow-hidden">
+      {/* Observer Mode Blur Overlay */}
+      {activeOperationId === null && (
+        <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center">
+          {!hasRegisteredEvents ? (
+            <div className="text-center space-y-4 px-8">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
+                <Map className="w-8 h-8 text-white/40" />
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">NO ACTIVE UPLINK</h2>
+              <p className="text-sm text-white/60 font-medium">BROWSE OPERATIONS IN LOBBY</p>
+            </div>
+          ) : !canDeployToNearest ? (
+            <div className="text-center space-y-4 px-8">
+              <div className="w-16 h-16 rounded-full bg-accent-orange/10 flex items-center justify-center border border-accent-orange/30 mx-auto">
+                <Clock className="w-8 h-8 text-accent-orange/60" />
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">AWAITING DEPLOYMENT</h2>
+              {nearestEvent && (
+                <p className="text-sm text-white/60 font-mono">
+                  NEXT OP IN: {(() => {
+                    const now = new Date();
+                    const start = new Date(nearestEvent.start_time);
+                    const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
+                    if (diffMinutes < 60) return `${Math.floor(diffMinutes)} MIN`;
+                    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} HOURS`;
+                    return `${Math.floor(diffMinutes / 1440)} DAYS`;
+                  })()}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* GPS Error Banner */}
       <AnimatePresence>
         {isGpsError && (

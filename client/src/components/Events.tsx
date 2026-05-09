@@ -13,6 +13,7 @@ interface EventsProps {
   balance: number;
   socket: Socket | null;
   onNavigate?: (view: string, operationId?: string) => void;
+  onRegisteredEventsChange?: (events: Array<{ id: string; start_time: string }>) => void;
 }
 
 interface Participant {
@@ -31,7 +32,7 @@ interface Event {
   participants: Participant[];
 }
 
-export default function Events({ balance, socket, onNavigate }: EventsProps) {
+export default function Events({ balance, socket, onNavigate, onRegisteredEventsChange }: EventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -41,6 +42,23 @@ export default function Events({ balance, socket, onNavigate }: EventsProps) {
   const [rosterEventId, setRosterEventId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const canDeploy = (startTime: string): boolean => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
+    return diffMinutes <= 5;
+  };
+
+  const handleDeploy = (eventId: string, startTime: string) => {
+    if (!canDeploy(startTime)) {
+      setToastMessage('Deployment authorized 5 minutes before T-Zero.');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    onNavigate?.('hunt', eventId);
+  };
 
   useEffect(() => {
     loadEvents();
@@ -145,12 +163,20 @@ export default function Events({ balance, socket, onNavigate }: EventsProps) {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error loading registered events:', error);
+        console.error('Supabase DB Error:', error);
         return;
       }
 
-      const registeredIds = data?.map(p => p.event_id) || [];
-      setRegisteredEvents(new Set(registeredIds));
+      if (data) {
+        const eventIds = data.map(p => p.event_id);
+        setRegisteredEvents(new Set(eventIds));
+
+        // Pass registered events with start times to parent
+        const registeredEventsData = events
+          .filter(e => eventIds.includes(e.id))
+          .map(e => ({ id: e.id, start_time: e.start_time }));
+        onRegisteredEventsChange?.(registeredEventsData);
+      }
     } catch (err) {
       console.error('Error loading registered events:', err);
     }
@@ -220,7 +246,20 @@ export default function Events({ balance, socket, onNavigate }: EventsProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-32 bg-bg-deep">
+    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 bg-bg-deep relative">
+      {/* Toast Message */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-4 left-4 right-4 z-50 bg-accent-orange text-white px-4 py-3 rounded-lg shadow-xl text-center font-black text-sm tracking-wider"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -337,10 +376,14 @@ export default function Events({ balance, socket, onNavigate }: EventsProps) {
               {/* Enter Button */}
               {registeredEvents.has(event.id) ? (
                 <button
-                  onClick={() => onNavigate?.('hunt', event.id)}
-                  className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
+                  onClick={() => handleDeploy(event.id, event.start_time)}
+                  className={`w-full py-4 font-black text-lg rounded-full border border-white/10 transition-all ${
+                    canDeploy(event.start_time)
+                      ? 'bg-accent-orange text-white hover:brightness-110 active:scale-[0.98] shadow-xl shadow-accent-orange/10'
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
-                  [ MAP UPLINK ]
+                  DEPLOY TO ZONE
                 </button>
               ) : (
                 <button

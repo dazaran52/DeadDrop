@@ -34,6 +34,7 @@ export default function App() {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
+  const [registeredEvents, setRegisteredEvents] = useState<Array<{ id: string; start_time: string }>>([]);
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -203,6 +204,7 @@ export default function App() {
           balance={balance}
           keys={keys}
           activeOperationId={activeOperationId}
+          registeredEvents={registeredEvents}
         />
       );
     }
@@ -213,7 +215,7 @@ export default function App() {
           setActiveOperationId(operationId);
         }
         setView(view as any);
-      }} />;
+      }} onRegisteredEventsChange={setRegisteredEvents} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
@@ -224,7 +226,7 @@ export default function App() {
           setActiveOperationId(operationId);
         }
         setView(view as any);
-      }} />;
+      }} onRegisteredEventsChange={setRegisteredEvents} />;
     }
   };
 
