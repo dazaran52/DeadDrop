@@ -18,7 +18,7 @@ import Events from './components/Events';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Loader2, Map, User, Trophy, Shield } from 'lucide-react';
+import { ShieldAlert, Loader2, Map, User, Trophy, Shield, Target } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { io, Socket } from 'socket.io-client';
 
@@ -228,6 +228,9 @@ export default function App() {
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[9999]">
             <button onClick={() => setView('dashboard')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'dashboard' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
               <Trophy size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
+            </button>
+            <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'events' ? 'opacity-100 text-accent-orange scale-110' : 'opacity-50'}`}>
+              <Target size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
             </button>
             <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
               <Map size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
