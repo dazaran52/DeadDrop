@@ -7,9 +7,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, TrendingUp, Target, X, Wallet, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Socket } from 'socket.io-client';
 
 interface EventsProps {
   balance: number;
+  socket: Socket | null;
 }
 
 interface Event {
@@ -21,11 +23,13 @@ interface Event {
   status: string;
 }
 
-export default function Events({ balance }: EventsProps) {
+export default function Events({ balance, socket }: EventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -55,17 +59,35 @@ export default function Events({ balance }: EventsProps) {
 
   const handleEnterEvent = (eventId: string) => {
     setSelectedEvent(eventId);
+    setModalError(null);
   };
 
   const handleConfirmRegistration = () => {
-    if (selectedEvent !== null) {
-      setRegisteredEvents(prev => new Set(prev).add(selectedEvent));
-      setSelectedEvent(null);
-    }
+    if (!socket || selectedEvent === null) return;
+
+    const event = events.find(e => e.id === selectedEvent);
+    if (!event) return;
+
+    setIsJoining(true);
+    setModalError(null);
+
+    socket.emit('event:join', { eventId: selectedEvent });
+
+    socket.on('event:join_response', (response: { success: boolean; error?: string }) => {
+      setIsJoining(false);
+
+      if (response.success) {
+        setRegisteredEvents(prev => new Set(prev).add(selectedEvent));
+        setSelectedEvent(null);
+      } else {
+        setModalError(response.error || 'Failed to join event');
+      }
+    });
   };
 
   const handleCloseModal = () => {
     setSelectedEvent(null);
+    setModalError(null);
   };
 
   const getTimeUntilEvent = (startTime: string) => {
@@ -201,53 +223,78 @@ export default function Events({ balance }: EventsProps) {
 
       {/* Payment Modal */}
       <AnimatePresence>
-        {selectedEvent !== null && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
-            onClick={handleCloseModal}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#1C1C1E] rounded-3xl p-6 w-full max-w-sm"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">CONFIRM ENTRY</h2>
-                  <p className="text-sm text-text-muted mt-2">
-                    Deduct {events.find(e => e.id === selectedEvent)?.entry_fee.toLocaleString()} CZK from your balance?
-                  </p>
-                </div>
-                <button
-                  onClick={handleCloseModal}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                >
-                  <X className="w-5 h-5 text-white" />
-                </button>
-              </div>
+        {selectedEvent !== null && (() => {
+          const event = events.find(e => e.id === selectedEvent);
+          if (!event) return null;
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCloseModal}
-                  className="flex-1 py-3 bg-gray-700 text-white font-bold rounded-full hover:bg-gray-600 transition-colors"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={handleConfirmRegistration}
-                  className="flex-1 py-3 bg-green-500 text-white font-bold rounded-full hover:bg-green-600 transition-colors"
-                >
-                  CONFIRM
-                </button>
-              </div>
+          const insufficientFunds = balance < event.entry_fee;
+          const shortage = event.entry_fee - balance;
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6"
+              onClick={handleCloseModal}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className={`rounded-3xl p-6 w-full max-w-sm ${insufficientFunds ? 'bg-red-950/50 border-2 border-red-500/50' : 'bg-[#1C1C1E]'}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className={`text-2xl font-black tracking-tight ${insufficientFunds ? 'text-red-500' : 'text-white'}`}>
+                      {insufficientFunds ? 'INSUFFICIENT FUNDS' : 'CONFIRM ENTRY'}
+                    </h2>
+                    <p className="text-sm text-text-muted mt-2">
+                      {insufficientFunds
+                        ? `You are short ${shortage.toLocaleString()} CZK to enter this operation. Top up your balance.`
+                        : modalError
+                          ? modalError
+                          : `Deduct ${event.entry_fee.toLocaleString()} CZK from your balance?`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCloseModal}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCloseModal}
+                    className="flex-1 py-3 bg-gray-700 text-white font-bold rounded-full hover:bg-gray-600 transition-colors"
+                  >
+                    CANCEL
+                  </button>
+                  {!insufficientFunds && !modalError && (
+                    <button
+                      onClick={handleConfirmRegistration}
+                      disabled={isJoining}
+                      className={`flex-1 py-3 font-bold rounded-full transition-colors ${isJoining ? 'bg-green-600 text-white/70 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}`}
+                    >
+                      {isJoining ? 'PROCESSING...' : 'CONFIRM'}
+                    </button>
+                  )}
+                  {insufficientFunds && (
+                    <button
+                      onClick={handleCloseModal}
+                      className="flex-1 py-3 bg-red-500 text-white font-bold rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      TOP UP BALANCE
+                    </button>
+                  )}
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

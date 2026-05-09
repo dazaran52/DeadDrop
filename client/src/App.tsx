@@ -33,6 +33,7 @@ export default function App() {
   const [keys, setKeys] = useState<number>(0);
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const { coords, error, loading } = useGeolocation();
 
   useEffect(() => {
@@ -116,6 +117,8 @@ export default function App() {
       withCredentials: true,
       transports: ['websocket', 'polling']
     });
+
+    setSocketInstance(socketInstance);
 
     socketInstance.emit('player:identify', { playerId: userId });
 
@@ -205,7 +208,7 @@ export default function App() {
 
     switch (view) {
       case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} balance={balance} keys={keys} />;
-      case 'events': return <Events balance={balance} />;
+      case 'events': return <Events balance={balance} socket={socketInstance} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
