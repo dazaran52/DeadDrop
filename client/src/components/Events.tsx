@@ -70,7 +70,7 @@ export default function Events({ balance, socket }: EventsProps) {
             )
           )
         `)
-        .eq('status', 'upcoming')
+        .in('status', ['upcoming', 'live'])
         .order('start_time', { ascending: true });
 
       if (error) {
@@ -161,16 +161,21 @@ export default function Events({ balance, socket }: EventsProps) {
     const start = new Date(startTime);
     const now = new Date();
     const diffMs = start.getTime() - now.getTime();
+
+    if (diffMs < 0) {
+      return { text: '🔴 OPERATION LIVE', isLive: true };
+    }
+
     const diffMins = Math.floor(diffMs / 60000);
 
     if (diffMins < 60) {
-      return `STARTS IN ${diffMins} MINS`;
+      return { text: `STARTS IN ${diffMins} MINS`, isLive: false };
     } else if (diffMins < 1440) {
       const hours = Math.floor(diffMins / 60);
-      return `STARTS IN ${hours} HOURS`;
+      return { text: `STARTS IN ${hours} HOURS`, isLive: false };
     } else {
       const days = Math.floor(diffMins / 1440);
-      return `STARTS IN ${days} DAYS`;
+      return { text: `STARTS IN ${days} DAYS`, isLive: false };
     }
   };
 
@@ -228,9 +233,9 @@ export default function Events({ balance, socket }: EventsProps) {
               {/* Badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-red-500" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">
-                    {getTimeUntilEvent(event.start_time)}
+                  <Clock className={`w-4 h-4 ${getTimeUntilEvent(event.start_time).isLive ? 'text-red-500' : 'text-red-500'}`} />
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${getTimeUntilEvent(event.start_time).isLive ? 'text-red-500' : 'text-red-500'}`}>
+                    {getTimeUntilEvent(event.start_time).text}
                   </span>
                 </div>
               </div>
