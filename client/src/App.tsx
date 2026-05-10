@@ -17,7 +17,7 @@ import Events from './components/Events';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Loader2, Map, User, Trophy, Shield } from 'lucide-react';
+import { ShieldAlert, Loader2, Map as MapIcon, User, Trophy, Shield } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { io, Socket } from 'socket.io-client';
 
@@ -304,7 +304,7 @@ export default function App() {
               <Trophy size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
             </button>
             <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
-              <Map size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
+              <MapIcon size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
             </button>
             <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
               <User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} />
