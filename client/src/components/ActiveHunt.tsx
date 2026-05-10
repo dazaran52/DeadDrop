@@ -493,7 +493,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           {!localIsAwaitingDeployment ? (
             <div className="text-center space-y-4 px-8">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
-                <Map className="w-8 h-8 text-white/40" />
+                <MapIcon className="w-8 h-8 text-white/40" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tighter uppercase">No Active Operations</h2>
               <p className="text-sm text-white/60 font-medium">You haven't joined any events. Go to the Lobby to browse operations.</p>
