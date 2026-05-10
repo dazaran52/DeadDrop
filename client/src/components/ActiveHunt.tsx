@@ -231,17 +231,50 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Update item in database
-      const { error } = await supabase
+      // Atomic update: only claim if not already claimed
+      const { data, error } = await supabase
         .from('event_items')
         .update({ is_claimed: true, claimed_by: user.id })
-        .eq('id', nearbyItem.id);
+        .eq('id', nearbyItem.id)
+        .eq('is_claimed', false)
+        .select();
 
       if (error) {
         console.error('Error claiming item:', error);
         setError('Failed to claim item');
         setTimeout(() => setError(null), 3000);
         return;
+      }
+
+      // If data is empty, someone else already claimed it
+      if (!data || data.length === 0) {
+        setInventory(prev => ({
+          ...prev,
+          items: prev.items.filter((item: any) => item.id !== nearbyItem.id)
+        }));
+        setNearbyItem(null);
+        setError('TOO LATE. ITEM ALREADY CLAIMED');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+
+      // Successfully claimed - update keys_collected in event_participants
+      const { data: participantData } = await supabase
+        .from('event_participants')
+        .select('keys_collected')
+        .eq('event_id', activeOperationId)
+        .eq('user_id', user.id)
+        .single();
+
+      const currentKeys = participantData?.keys_collected || 0;
+      const { error: participantError } = await supabase
+        .from('event_participants')
+        .update({ keys_collected: currentKeys + 1 })
+        .eq('event_id', activeOperationId)
+        .eq('user_id', user.id);
+
+      if (participantError) {
+        console.error('Error updating keys_collected:', participantError);
       }
 
       // Remove from local state
@@ -256,7 +289,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     } catch (err) {
       console.error('Error in handleClaimItem:', err);
     }
-  }, [nearbyItem]);
+  }, [nearbyItem, activeOperationId]);
 
   // Audio toggle handler
   const toggleAudio = useCallback(() => {
@@ -854,7 +887,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           }}
           className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-accent-orange/30 border-2 border-accent-orange rounded-lg text-sm font-black text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
         >
-          ВЗЛОМАТЬ DEADDROP
+          OPEN VAULT
         </button>
       )}
 
@@ -862,9 +895,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {nearbyItem && (
         <button
           onClick={handleClaimItem}
-          className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[99999] px-8 py-4 bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 rounded-lg text-lg font-black text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
+          className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-[99999] w-[80%] max-w-sm rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
         >
-          [ EXTRACT CRYPTO-KEY ]
+          CLAIM KEY
         </button>
       )}
 

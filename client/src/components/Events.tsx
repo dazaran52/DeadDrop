@@ -203,7 +203,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     setModalError(null);
   };
 
-  const handleConfirmJoin = async () => {
+  const handleJoinEvent = async () => {
     setIsJoining(true);
     setModalError(null);
 
@@ -212,6 +212,32 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         setModalError('Socket not connected');
         setIsJoining(false);
         return;
+      }
+
+      // Check for time collisions with existing registered events
+      const now = new Date();
+      const newEvent = events.find(e => e.id === selectedEvent);
+      if (newEvent) {
+        const newEventStart = new Date(newEvent.start_time);
+        const newEventEnd = new Date(newEventStart.getTime() + 2 * 60 * 60 * 1000); // Assume 2 hour duration
+
+        for (const eventId of registeredEvents) {
+          const existingEvent = events.find(e => e.id === eventId);
+          if (existingEvent) {
+            const existingEventStart = new Date(existingEvent.start_time);
+            const existingEventEnd = new Date(existingEventStart.getTime() + 2 * 60 * 60 * 1000); // Assume 2 hour duration
+
+            // Check if events overlap
+            const isOverlapping = newEventStart < existingEventEnd && newEventEnd > existingEventStart;
+            const isLive = now >= existingEventStart && now < existingEventEnd;
+
+            if (isOverlapping || isLive) {
+              setModalError('TIME COLLISION: You are already deployed in an overlapping operation.');
+              setIsJoining(false);
+              return;
+            }
+          }
+        }
       }
 
       socket.emit('event:join', { eventId: selectedEvent });
