@@ -75,12 +75,15 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   };
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (isPulling) {
+    if (isPulling && window.scrollY === 0) {
       const currentY = e.touches[0].clientY;
       const diff = currentY - touchStartY;
       if (diff > 0) {
-        setPullY(Math.min(diff, 100));
+        setPullY(Math.min(diff * 0.4, 100));
       }
+    } else {
+      setIsPulling(false);
+      setPullY(0);
     }
   };
 
@@ -385,7 +388,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         {[
           { key: 'time' as const, label: 'TIME' },
           { key: 'entry' as const, label: 'ENTRY' },
-          { key: 'diff' as const, label: 'DIFF' },
+          { key: 'diff' as const, label: 'KEYS' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -467,7 +470,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         >
           {/* Pull indicator */}
           {pullY > 0 && (
-            <div className="flex justify-center py-4" style={{ transform: `translateY(${pullY}px)` }}>
+            <div className="flex justify-center py-4 transition-transform duration-300" style={{ transform: `translateY(${pullY}px)` }}>
               <RefreshCw className={`w-6 h-6 text-white/50 ${pullY > 50 ? 'animate-spin' : ''}`} />
             </div>
           )}

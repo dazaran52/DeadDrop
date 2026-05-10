@@ -905,14 +905,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className={`text-2xl font-black ${collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
+                    <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
                       <span className="text-red-500 absolute -bottom-6 animate-bounce">-{requiredKeys}</span>
                     )}
                     {showKeyGain && (
                       <span className="text-green-500 absolute -bottom-6 animate-in slide-in-from-bottom-5 fade-in duration-500">+1</span>
                     )}
-                    {collectedKeys >= requiredKeys && (
+                    {requiredKeys > 0 && collectedKeys >= requiredKeys && (
                       <span className="text-xs text-green-500 animate-bounce absolute -bottom-4 left-0 w-max">VAULT UNLOCK READY</span>
                     )}
                   </div>
@@ -939,12 +939,17 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {nearestVaultDistance !== null && nearestVaultDistance < 15 && nearestVaultId && isConnected && (
         <button
           onClick={() => {
-            if (socket && !isClaimingRef.current) {
+            if (socket && !isClaimingRef.current && collectedKeys >= requiredKeys) {
               isClaimingRef.current = true;
               socket.emit('vault:claim', { vaultId: nearestVaultId });
             }
           }}
-          className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg bg-accent-orange/30 border-2 border-accent-orange text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
+          disabled={collectedKeys < requiredKeys}
+          className={`fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg uppercase tracking-widest transition-all animate-pulse shadow-lg shadow-accent-orange/20 ${
+            collectedKeys >= requiredKeys
+              ? 'bg-accent-orange/30 border-2 border-accent-orange text-accent-orange hover:bg-accent-orange/40'
+              : 'bg-gray-500/30 border-2 border-gray-500 text-gray-400 cursor-not-allowed'
+          }`}
         >
           OPEN VAULT
         </button>
@@ -991,7 +996,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Map Refresh - Top Right */}
       {mapInstance && (
-        <div className="fixed top-24 right-4 z-[999999] bg-black/50 p-2 rounded-full backdrop-blur-md">
+        <div className="fixed top-32 right-4 z-[99999] bg-black/50 p-2 rounded-full backdrop-blur-md">
           <button
             onClick={() => {
               setIsRefreshing(true);
@@ -1049,7 +1054,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         <button
           onClick={() => {
             if (mapInstance) {
-              mapInstance.setView(userLocation, 16);
+              mapInstance.flyTo([userLocation.latitude, userLocation.longitude], 16, { duration: 1 });
             }
           }}
           className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
@@ -1069,7 +1074,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Claim Overlay */}
       {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-75 slide-in-from-bottom-10 fade-in duration-300 ease-out">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-150 fade-in duration-300 ease-out">
           <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
             {claimOverlay} - {collectedKeys}/{requiredKeys}
           </div>
