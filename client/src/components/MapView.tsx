@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, useMap, Circle, Popup } from 'react-le
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
+import { Plus, Minus } from 'lucide-react';
 
 // Add CSS animation for loot text and vault fade out
 const style = document.createElement('style');
@@ -75,6 +76,36 @@ function RecenterMap({ pos, shouldCenter }: { pos: [number, number]; shouldCente
   return null;
 }
 
+function ZoomControl() {
+  const map = useMap();
+
+  const handleZoomIn = () => {
+    map.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    map.zoomOut();
+  };
+
+  return (
+    <div className="fixed right-4 bottom-[220px] z-[99999] bg-black/80 backdrop-blur-md border border-white/10 rounded-full flex flex-col overflow-hidden">
+      <button
+        onClick={handleZoomIn}
+        className="w-12 h-12 flex items-center justify-center hover:bg-white/10 transition-colors"
+      >
+        <Plus size={20} className="text-white" />
+      </button>
+      <div className="border-b border-white/10" />
+      <button
+        onClick={handleZoomOut}
+        className="w-12 h-12 flex items-center justify-center hover:bg-white/10 transition-colors"
+      >
+        <Minus size={20} className="text-white" />
+      </button>
+    </div>
+  );
+}
+
 export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
   return (
     <div className="w-full h-full relative group">
@@ -83,16 +114,16 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
         <div className="w-full h-1 bg-accent-blue absolute animate-[scan_4s_linear_infinite]" />
       </div>
 
-      <MapContainer 
-        center={userPos} 
-        zoom={16} 
+      <MapContainer
+        center={userPos}
+        zoom={16}
         style={{ height: '100%', width: '100%', zIndex: 1 }}
         zoomControl={false}
         attributionControl={false}
         dragging={true}
         touchZoom={true}
-        doubleClickZoom={false}
-        scrollWheelZoom={false}
+        doubleClickZoom={true}
+        scrollWheelZoom={true}
         className={`w-full h-full ${theme === 'dark' ? 'dark-map' : ''}`}
       >
         <TileLayer
@@ -187,6 +218,7 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
           />
         ))}
 
+        <ZoomControl />
         <RecenterMap pos={userPos} shouldCenter={shouldCenter} />
       </MapContainer>
 

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ShieldAlert, Cpu, Lock, Zap, Maximize, CheckCircle2, TrendingUp, Key, SignalLow, Trophy, VolumeX, Volume2, Crosshair, Map, User, Shield, Clock } from 'lucide-react';
+import { Map as MapIcon, X, Volume2, VolumeX, Trophy, User, Target, Crosshair, Lock, Shield, Key, Clock, Activity, Plus, Minus } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
