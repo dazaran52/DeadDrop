@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw } from 'lucide-react';
+import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Socket } from 'socket.io-client';
 
@@ -45,7 +45,8 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string | null } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'time' | 'entry' | 'pool'>('time');
+  const [filter, setFilter] = useState<'time' | 'entry' | 'diff'>('time');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
@@ -55,7 +56,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400' };
     if (requiredKeys <= 2) return { label: 'EASY', color: 'text-green-400' };
     if (requiredKeys <= 4) return { label: 'MEDIUM', color: 'text-yellow-400' };
-    return { label: 'HARD', color: 'text-red-400' };
+    return { label: 'HARD', color: 'text-red-500' };
   };
 
   const handleRefresh = async () => {
@@ -110,15 +111,26 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
 
   const getSortedEvents = () => {
     const sorted = [...events];
-    switch (filter) {
-      case 'time':
-        return sorted.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-      case 'entry':
-        return sorted.sort((a, b) => a.entry_fee - b.entry_fee);
-      case 'pool':
-        return sorted.sort((a, b) => b.pool - a.pool);
-      default:
-        return sorted;
+    if (filter === 'time') {
+      sorted.sort((a, b) => sortDirection === 'asc'
+        ? new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        : new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    } else if (filter === 'entry') {
+      sorted.sort((a, b) => sortDirection === 'asc' ? a.entry_fee - b.entry_fee : b.entry_fee - a.entry_fee);
+    } else if (filter === 'diff') {
+      sorted.sort((a, b) => sortDirection === 'asc'
+        ? (a.required_keys || 0) - (b.required_keys || 0)
+        : (b.required_keys || 0) - (a.required_keys || 0));
+    }
+    return sorted;
+  };
+
+  const handleFilterClick = (newFilter: 'time' | 'entry' | 'diff') => {
+    if (filter === newFilter) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setFilter(newFilter);
+      setSortDirection('desc');
     }
   };
 
@@ -373,18 +385,21 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         {[
           { key: 'time' as const, label: 'TIME' },
           { key: 'entry' as const, label: 'ENTRY' },
-          { key: 'pool' as const, label: 'POOL' },
+          { key: 'diff' as const, label: 'DIFF' },
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key)}
-            className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+            onClick={() => handleFilterClick(tab.key)}
+            className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
               filter === tab.key
                 ? 'bg-accent-orange text-white'
                 : 'text-white/40 hover:text-white/60'
             }`}
           >
             {tab.label}
+            {filter === tab.key && (
+              sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+            )}
           </button>
         ))}
       </div>
@@ -483,8 +498,8 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               {/* Difficulty Row */}
               {event.required_keys && (
                 <div className="flex justify-between text-xs text-gray-400 mb-2">
-                  <span>DIFFICULTY: {getDifficulty(event.required_keys).label}</span>
-                  <span>TARGET: {event.required_keys} KEYS</span>
+                  <span className={getDifficulty(event.required_keys).color}>DIFFICULTY: {getDifficulty(event.required_keys).label}</span>
+                  <span className="text-white">TARGET: {event.required_keys} KEYS</span>
                 </div>
               )}
 

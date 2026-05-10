@@ -506,9 +506,30 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setNearestVaultId(null);
         // Remove vault from map state immediately
         setVaults(prev => prev.filter(v => v.id !== vault.id));
-        // Deduct key from event keys
-        setCollectedKeys(prev => prev - 1);
-        // Show key spend animation
+        // Deduct required_keys from event keys
+        setCollectedKeys(prev => prev - requiredKeys);
+        // Update DB: subtract required_keys from keys_collected
+        const updateKeysCollected = async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: participantData } = await supabase
+              .from('event_participants')
+              .select('keys_collected')
+              .eq('event_id', activeOperationId)
+              .eq('user_id', user.id)
+              .single();
+
+            if (participantData) {
+              await supabase
+                .from('event_participants')
+                .update({ keys_collected: (participantData.keys_collected || 0) - requiredKeys })
+                .eq('event_id', activeOperationId)
+                .eq('user_id', user.id);
+            }
+          }
+        };
+        updateKeysCollected();
+        // Show key spend animation with required_keys amount
         setShowKeySpend(true);
         setTimeout(() => setShowKeySpend(false), 1500);
         // Add independent reward animation
@@ -883,12 +904,15 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className="text-2xl font-black text-white">KEYS: {collectedKeys} / {requiredKeys}</span>
+                    <span className={`text-2xl font-black ${collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
-                      <span className="text-red-500 absolute -bottom-6 animate-bounce">-1</span>
+                      <span className="text-red-500 absolute -bottom-6 animate-bounce">-{requiredKeys}</span>
                     )}
                     {showKeyGain && (
                       <span className="text-green-500 absolute -bottom-6 animate-in slide-in-from-bottom-5 fade-in duration-500">+1</span>
+                    )}
+                    {collectedKeys >= requiredKeys && (
+                      <div className="absolute top-10 left-0 text-[10px] text-green-400 font-mono tracking-widest animate-bounce">VAULT UNLOCK AUTHORIZED</div>
                     )}
                   </div>
                 </div>
@@ -935,23 +959,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </button>
       )}
 
-      {/* FAB Buttons Container */}
-      {activeOperationId && (
-        <div className="fixed right-4 bottom-[120px] flex flex-col items-center gap-3 z-[99999]">
-        {/* Admin Spawn Vault FAB */}
-        {inventory.role === 'admin' && (
+      {/* Zoom Controls - Left Bottom */}
+      {mapInstance && (
+        <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[9999]">
+          {/* Zoom In FAB */}
           <button
             onClick={() => {
-              if (socket) {
-                socket.emit('dev:spawn_near');
+              if (mapInstance) {
+                mapInstance.zoomIn();
               }
             }}
-            disabled={!isConnected}
-            className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-cyan-400 hover:bg-black/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
           >
-            <Trophy className="w-5 h-5" />
+            <Plus className="w-5 h-5" />
           </button>
-        )}
 
           {/* Zoom Out FAB */}
           <button
@@ -997,15 +1018,15 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             fetchEventItems();
             setTimeout(() => setIsRefreshing(false), 500);
           }}
-          className="fixed top-20 right-4 z-[99999] w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+          className="fixed top-24 right-4 z-[9999] w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
         >
           <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       )}
 
-      {/* Right Side FABs */}
+      {/* Right Side FABs - Bottom Right */}
       {activeOperationId && (
-        <div className="fixed bottom-[140px] right-4 flex flex-col items-center gap-3 z-[99999]">
+        <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
