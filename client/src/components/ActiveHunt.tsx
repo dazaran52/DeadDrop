@@ -281,6 +281,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // Listen for inventory initialization
       socketInstance.on('inventory:init', (inventoryData) => {
+        console.log('FETCHED ITEMS:', inventoryData?.items);
         console.log('Получен инвентарь:', inventoryData);
         if (inventoryData) {
           setInventory({
@@ -513,13 +514,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                       <h3 className="text-lg font-black text-white">{event.title}</h3>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-accent-orange" />
-                        <span className="text-xs font-mono text-white/60">
-                          {diffMinutes < 60
-                            ? `${Math.floor(diffMinutes)} MIN`
-                            : diffMinutes < 1440
-                            ? `${Math.floor(diffMinutes / 60)} HOURS`
-                            : `${Math.floor(diffMinutes / 1440)} DAYS`}
-                        </span>
+                        <div className="text-3xl font-black text-white tracking-tighter">
+                        {diffMinutes <= 0 ? (
+                          <span className="text-red-500 animate-pulse">[ OPERATION LIVE ]</span>
+                        ) : (
+                          `${Math.floor(diffMinutes)} MIN`
+                        )}
+                      </div>
                       </div>
                       {canDeploy ? (
                         <button
@@ -695,6 +696,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               vaults={vaults}
               lootAnimations={lootAnimations}
               rewards={rewards}
+              items={inventory.items}
               shouldCenter={shouldCenterMap}
               onVaultClaim={(vaultId) => {
                 if (socket) {

@@ -60,6 +60,7 @@ interface MapViewProps {
   vaults?: any[];
   lootAnimations?: any[];
   rewards?: {id: string, amount: number, lat: number, lng: number}[];
+  items?: any[];
   onVaultClaim?: (vaultId: string) => void;
   shouldCenter?: boolean;
 }
@@ -74,7 +75,7 @@ function RecenterMap({ pos, shouldCenter }: { pos: [number, number]; shouldCente
   return null;
 }
 
-export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
+export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
   return (
     <div className="w-full h-full relative group">
       {/* Map Scanning line effect */}
@@ -156,7 +157,36 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
             })}
           />
         ))}
-        
+
+        {/* Key Items */}
+        {items.map((item) => (
+          <Marker
+            key={item.id}
+            position={[item.lat, item.lng]}
+            icon={L.divIcon({
+              className: 'custom-key-icon',
+              html: `<div style="
+                width: 32px;
+                height: 32px;
+                background: rgba(168, 85, 247, 0.2);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid rgba(168, 85, 247, 1);
+                box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+                animation: pulse 2s ease-in-out infinite;
+              ">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(168, 85, 247, 1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                </svg>
+              </div>`,
+              iconSize: [32, 32],
+              iconAnchor: [16, 16]
+            })}
+          />
+        ))}
+
         <RecenterMap pos={userPos} shouldCenter={shouldCenter} />
       </MapContainer>
 

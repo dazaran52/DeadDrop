@@ -33,7 +33,7 @@ export default function App() {
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
-  const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
+  const [activeOperationId, setActiveOperationId] = useState<string | null>(() => localStorage.getItem('activeOperationId') || null);
   const [registeredEvents, setRegisteredEvents] = useState<Array<{ id: string; start_time: string }>>([]);
 
   // Calculate isAwaitingDeployment based on registered events
@@ -43,6 +43,15 @@ export default function App() {
     const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
     return diffMinutes > 5; // Still waiting for deployment window
   });
+
+  // Save activeOperationId to localStorage
+  useEffect(() => {
+    if (activeOperationId) {
+      localStorage.setItem('activeOperationId', activeOperationId);
+    } else {
+      localStorage.removeItem('activeOperationId');
+    }
+  }, [activeOperationId]);
 
   const { coords, error, loading } = useGeolocation();
 

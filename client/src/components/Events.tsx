@@ -449,7 +449,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     }`}
                     disabled={!canDeploy(event.start_time) && activeOperationId !== event.id}
                   >
-                    {activeOperationId === event.id ? 'RESUME OP' : canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
+                    {activeOperationId === event.id ? 'RESUME' : canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
                   </button>
                   {!canDeploy(event.start_time) && activeOperationId !== event.id && (
                     <p className="text-xs text-white/40 text-center font-medium">Deployment opens at T-minus 5m</p>
