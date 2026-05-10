@@ -86,19 +86,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       fetchEventItems();
 
-      // Fetch event keys collected from event_items (computed on the fly)
+      // Fetch event keys collected from event_participants
       const fetchEventKeys = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: itemsData } = await supabase
-          .from('event_items')
-          .select('id')
+        const { data: participantData } = await supabase
+          .from('event_participants')
+          .select('keys_balance')
           .eq('event_id', activeOperationId)
-          .eq('claimed_by', user.id);
+          .eq('user_id', user.id)
+          .single();
 
-        if (itemsData) {
-          setCollectedKeys(itemsData.length);
+        if (participantData) {
+          setCollectedKeys(participantData.keys_balance || 0);
         }
       };
 
@@ -281,23 +282,23 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         return;
       }
 
-      // Successfully claimed - update keys_collected in event_participants
+      // Successfully claimed - update keys_balance in event_participants
       const { data: participantData } = await supabase
         .from('event_participants')
-        .select('keys_collected')
+        .select('keys_balance')
         .eq('event_id', activeOperationId)
         .eq('user_id', user.id)
         .single();
 
-      const currentKeys = participantData?.keys_collected || 0;
+      const currentKeys = participantData?.keys_balance || 0;
       const { error: participantError } = await supabase
         .from('event_participants')
-        .update({ keys_collected: currentKeys + 1 })
+        .update({ keys_balance: currentKeys + 1 })
         .eq('event_id', activeOperationId)
         .eq('user_id', user.id);
 
       if (participantError) {
-        console.error('Error updating keys_collected:', participantError);
+        console.error('Error updating keys_balance:', participantError);
       }
 
       // Remove from local state
@@ -508,13 +509,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setVaults(prev => prev.filter(v => v.id !== vault.id));
         // Deduct required_keys from event keys
         setCollectedKeys(prev => prev - requiredKeys);
-        // Update DB: subtract required_keys from keys_collected
-        const updateKeysCollected = async () => {
+        // Update DB: subtract required_keys from keys_balance
+        const updateKeysBalance = async () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const { data: participantData } = await supabase
               .from('event_participants')
-              .select('keys_collected')
+              .select('keys_balance')
               .eq('event_id', activeOperationId)
               .eq('user_id', user.id)
               .single();
@@ -522,13 +523,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             if (participantData) {
               await supabase
                 .from('event_participants')
-                .update({ keys_collected: (participantData.keys_collected || 0) - requiredKeys })
+                .update({ keys_balance: (participantData.keys_balance || 0) - requiredKeys })
                 .eq('event_id', activeOperationId)
                 .eq('user_id', user.id);
             }
           }
         };
-        updateKeysCollected();
+        updateKeysBalance();
         // Show key spend animation with required_keys amount
         setShowKeySpend(true);
         setTimeout(() => setShowKeySpend(false), 1500);
@@ -904,7 +905,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className={`text-2xl font-black ${collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse drop-shadow-[0_0_8px_rgba(74,222,128,0.8)]' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
+                    <span className={`text-2xl font-black ${collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
                       <span className="text-red-500 absolute -bottom-6 animate-bounce">-{requiredKeys}</span>
                     )}
@@ -912,7 +913,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                       <span className="text-green-500 absolute -bottom-6 animate-in slide-in-from-bottom-5 fade-in duration-500">+1</span>
                     )}
                     {collectedKeys >= requiredKeys && (
-                      <div className="absolute top-10 left-0 text-[10px] text-green-400 font-mono tracking-widest animate-bounce">VAULT UNLOCK AUTHORIZED</div>
+                      <span className="text-xs text-green-500 animate-bounce absolute -bottom-4 left-0 w-max">VAULT UNLOCK READY</span>
                     )}
                   </div>
                 </div>
@@ -961,7 +962,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Zoom Controls - Left Bottom */}
       {mapInstance && (
-        <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[9999]">
+        <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
           {/* Zoom In FAB */}
           <button
             onClick={() => {
@@ -990,38 +991,41 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Map Refresh - Top Right */}
       {mapInstance && (
-        <button
-          onClick={() => {
-            setIsRefreshing(true);
-            const fetchEventItems = async () => {
-              const { data, error } = await supabase
-                .from('event_items')
-                .select('*')
-                .eq('event_id', activeOperationId)
-                .eq('is_claimed', false);
-              if (data && Array.isArray(data)) {
-                setInventory(prev => ({ ...prev, items: data }));
-              }
-              // Also refresh collected keys count
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                const { data: itemsData } = await supabase
+        <div className="fixed top-24 right-4 z-[999999] bg-black/50 p-2 rounded-full backdrop-blur-md">
+          <button
+            onClick={() => {
+              setIsRefreshing(true);
+              const fetchEventItems = async () => {
+                const { data, error } = await supabase
                   .from('event_items')
-                  .select('id')
+                  .select('*')
                   .eq('event_id', activeOperationId)
-                  .eq('claimed_by', user.id);
-                if (itemsData) {
-                  setCollectedKeys(itemsData.length);
+                  .eq('is_claimed', false);
+                if (data && Array.isArray(data)) {
+                  setInventory(prev => ({ ...prev, items: data }));
                 }
-              }
-            };
-            fetchEventItems();
-            setTimeout(() => setIsRefreshing(false), 500);
-          }}
-          className="fixed top-24 right-4 z-[9999] w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
-        >
-          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </button>
+                // Also refresh collected keys count
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  const { data: participantData } = await supabase
+                    .from('event_participants')
+                    .select('keys_balance')
+                    .eq('event_id', activeOperationId)
+                    .eq('user_id', user.id)
+                    .single();
+                  if (participantData) {
+                    setCollectedKeys(participantData.keys_balance || 0);
+                  }
+                }
+              };
+              fetchEventItems();
+              setTimeout(() => setIsRefreshing(false), 500);
+            }}
+            className="w-12 h-12 flex items-center justify-center text-white/80 hover:text-white transition-all"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       )}
 
       {/* Right Side FABs - Bottom Right */}

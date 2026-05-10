@@ -52,11 +52,11 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState(0);
 
-  const getDifficulty = (requiredKeys?: number): { label: string; color: string } => {
-    if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400' };
-    if (requiredKeys <= 2) return { label: 'EASY', color: 'text-green-400' };
-    if (requiredKeys <= 4) return { label: 'MEDIUM', color: 'text-yellow-400' };
-    return { label: 'HARD', color: 'text-red-500' };
+  const getDifficulty = (requiredKeys?: number): { label: string; color: string; bg: string } => {
+    if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400', bg: 'bg-gray-500/20' };
+    if (requiredKeys <= 2) return { label: 'EASY', color: 'text-green-400', bg: 'bg-green-500/20' };
+    if (requiredKeys <= 4) return { label: 'MEDIUM', color: 'text-yellow-400', bg: 'bg-yellow-500/20' };
+    return { label: 'HARD', color: 'text-red-500', bg: 'bg-red-500/20' };
   };
 
   const handleRefresh = async () => {
@@ -497,9 +497,13 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
 
               {/* Difficulty Row */}
               {event.required_keys && (
-                <div className="flex justify-between text-xs text-gray-400 mb-2">
-                  <span className={getDifficulty(event.required_keys).color}>DIFFICULTY: {getDifficulty(event.required_keys).label}</span>
-                  <span className="text-white">TARGET: {event.required_keys} KEYS</span>
+                <div className="flex flex-row gap-2 mb-2">
+                  <span className={`${getDifficulty(event.required_keys).bg} ${getDifficulty(event.required_keys).color} px-2 py-1 rounded text-xs font-bold tracking-wide`}>
+                    {getDifficulty(event.required_keys).label}
+                  </span>
+                  <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-mono">
+                    {event.required_keys} KEYS REQ
+                  </span>
                 </div>
               )}
 
