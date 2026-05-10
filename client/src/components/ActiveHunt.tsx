@@ -748,7 +748,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* FAB Buttons Container */}
-      <div className="fixed right-4 bottom-[110px] z-[99999] flex flex-col gap-4">
+      {activeOperationId && (
+        <div className="fixed right-4 bottom-[110px] z-[99999] flex flex-col gap-4">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
@@ -784,6 +785,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           <Crosshair className="w-5 h-5" />
         </button>
       </div>
+      )}
 
       {/* DEV Menu Toggle */}
       {process.env.NODE_ENV === 'development' && (

@@ -12,6 +12,7 @@ import { Socket } from 'socket.io-client';
 interface EventsProps {
   balance: number;
   socket: Socket | null;
+  activeOperationId?: string | null;
   onNavigate?: (view: string, operationId?: string) => void;
   onRegisteredEventsChange?: (events: Array<{ id: string; start_time: string }>) => void;
 }
@@ -32,7 +33,7 @@ interface Event {
   participants: Participant[];
 }
 
-export default function Events({ balance, socket, onNavigate, onRegisteredEventsChange }: EventsProps) {
+export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange }: EventsProps) {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -440,15 +441,17 @@ export default function Events({ balance, socket, onNavigate, onRegisteredEvents
                   <button
                     onClick={() => handleDeploy(event.id, event.start_time)}
                     className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
-                      canDeploy(event.start_time)
+                      activeOperationId === event.id
+                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
+                        : canDeploy(event.start_time)
                         ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
                         : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
                     }`}
-                    disabled={!canDeploy(event.start_time)}
+                    disabled={!canDeploy(event.start_time) && activeOperationId !== event.id}
                   >
-                    {canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
+                    {activeOperationId === event.id ? 'RESUME OP' : canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
                   </button>
-                  {!canDeploy(event.start_time) && (
+                  {!canDeploy(event.start_time) && activeOperationId !== event.id && (
                     <p className="text-xs text-white/40 text-center font-medium">Deployment opens at T-minus 5m</p>
                   )}
                 </div>

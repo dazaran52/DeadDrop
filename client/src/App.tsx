@@ -226,16 +226,22 @@ export default function App() {
     }
 
     switch (view) {
-      case 'events': return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
-        if (operationId) {
-          setActiveOperationId(operationId);
-        }
-        setView(view as any);
-      }} onRegisteredEventsChange={setRegisteredEvents} />;
+      case 'events': return <Events
+        balance={balance}
+        socket={socketInstance}
+        activeOperationId={activeOperationId}
+        onNavigate={(view, operationId) => {
+          if (operationId) {
+            setActiveOperationId(operationId);
+          }
+          setView(view as any);
+        }}
+        onRegisteredEventsChange={setRegisteredEvents}
+      />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} theme={theme} onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} balance={balance} keys={keys} />;
+      }} balance={balance} keys={keys} />;
       case 'admin': return <AdminPanel />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {
@@ -288,10 +294,7 @@ export default function App() {
             <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'events' ? 'opacity-100 text-accent-orange scale-110' : 'opacity-50'}`}>
               <Trophy size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
             </button>
-            <button onClick={() => {
-              setActiveOperationId(null);
-              setView('hunt');
-            }} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
+            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
               <Map size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
             </button>
             <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
