@@ -47,6 +47,9 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<'time' | 'entry' | 'pool'>('time');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const [touchStartY, setTouchStartY] = useState(0);
 
   const getDifficulty = (requiredKeys?: number): { label: string; color: string } => {
     if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400' };
@@ -60,6 +63,33 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     await loadEvents();
     await loadRegisteredEvents();
     setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  // Pull-to-Refresh handlers
+  const handleTouchStart = (e: TouchEvent) => {
+    if (window.scrollY === 0) {
+      setTouchStartY(e.touches[0].clientY);
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (isPulling) {
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - touchStartY;
+      if (diff > 0) {
+        setPullY(Math.min(diff, 100));
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullY > 50) {
+      handleRefresh();
+    }
+    setPullY(0);
+    setIsPulling(false);
+    setTouchStartY(0);
   };
 
   const canDeploy = (startTime: string): boolean => {
@@ -414,7 +444,19 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div
+          className="space-y-6"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Pull indicator */}
+          {pullY > 0 && (
+            <div className="flex justify-center py-4" style={{ transform: `translateY(${pullY}px)` }}>
+              <RefreshCw className={`w-6 h-6 text-white/50 ${pullY > 50 ? 'animate-spin' : ''}`} />
+            </div>
+          )}
+
           {getSortedEvents().map((event, index) => (
             <motion.div
               key={event.id}
@@ -431,22 +473,20 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     {getTimeUntilEvent(event.start_time).text}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${getDifficulty(event.required_keys).color}`}>
-                    {getDifficulty(event.required_keys).label}
+                {registeredEvents.has(event.id) && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
+                    ENTERED ✓
                   </span>
-                  {event.required_keys && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/50">
-                      {event.required_keys} KEYS
-                    </span>
-                  )}
-                  {registeredEvents.has(event.id) && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
-                      ENTERED ✓
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
+
+              {/* Difficulty Row */}
+              {event.required_keys && (
+                <div className="flex justify-between text-xs text-gray-400 mb-2">
+                  <span>DIFFICULTY: {getDifficulty(event.required_keys).label}</span>
+                  <span>TARGET: {event.required_keys} KEYS</span>
+                </div>
+              )}
 
               {/* Title */}
               <h2 className="text-2xl font-black text-white tracking-tight leading-none">

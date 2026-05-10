@@ -273,7 +273,7 @@ export default function App() {
         <div className="flex-1 flex flex-col pt-4 lg:pt-12 relative overflow-hidden">
           {/* Reconnecting Badge */}
           {!isSocketConnected && isAppReady && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[70] bg-red-500/20 border border-red-500/50 px-4 py-2 rounded-full">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[70] bg-red-500/20 border border-red-500/50 px-4 py-2 rounded-full">
               <span className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Reconnecting...</span>
             </div>
           )}

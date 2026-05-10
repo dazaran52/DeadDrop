@@ -22,12 +22,11 @@ interface ActiveHuntProps {
   activeOperationId?: string | null;
   registeredEvents?: Array<{ id: string; start_time: string }>;
   isAwaitingDeployment?: boolean;
-  requiredKeys?: number;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false, requiredKeys = 0 }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -39,29 +38,30 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [nearbyItem, setNearbyItem] = useState<any>(null);
   const [collectedKeys, setCollectedKeys] = useState<number>(0);
+  const [requiredKeys, setRequiredKeys] = useState<number>(0);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
   const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Fetch operation title when activeOperationId changes
+  // Fetch operation title and required_keys when activeOperationId changes
   useEffect(() => {
     if (activeOperationId) {
-      // Fetch operation title
-      const fetchOperationTitle = async () => {
+      // Fetch operation title and required_keys
+      const fetchOperationInfo = async () => {
         const { data, error } = await supabase
           .from('events')
-          .select('title')
+          .select('title, required_keys')
           .eq('id', activeOperationId)
           .single();
 
-        if (error) {
-          console.error('Error fetching operation title:', error);
-        } else if (data) {
+        if (data) {
           setOperationTitle(data.title);
+          setRequiredKeys(data.required_keys || 0);
         }
       };
 
-      fetchOperationTitle();
+      fetchOperationInfo();
 
       // Fetch event items from Supabase
       const fetchEventItems = async () => {
@@ -953,54 +953,25 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           </button>
         )}
 
-        {/* Audio FAB */}
-        <button
-          onClick={toggleAudio}
-          disabled={!isConnected}
-          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
+          {/* Zoom Out FAB */}
+          <button
+            onClick={() => {
+              if (mapInstance) {
+                mapInstance.zoomOut();
+              }
+            }}
+            className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+          >
+            <Minus className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
-        {/* Center Map FAB */}
+      {/* Map Refresh - Top Right */}
+      {mapInstance && (
         <button
           onClick={() => {
-            setShouldCenterMap(true);
-            setTimeout(() => setShouldCenterMap(false), 1000);
-          }}
-          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
-        >
-          <Crosshair className="w-5 h-5" />
-        </button>
-
-        {/* Zoom In FAB */}
-        <button
-          onClick={() => {
-            if (mapInstance) {
-              mapInstance.zoomIn();
-            }
-          }}
-          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-
-        {/* Zoom Out FAB */}
-        <button
-          onClick={() => {
-            if (mapInstance) {
-              mapInstance.zoomOut();
-            }
-          }}
-          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
-        >
-          <Minus className="w-5 h-5" />
-        </button>
-
-        {/* Refresh FAB */}
-        <button
-          onClick={() => {
-            // Reload items and keys
+            setIsRefreshing(true);
             const fetchEventItems = async () => {
               const { data, error } = await supabase
                 .from('event_items')
@@ -1010,19 +981,70 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               if (data && Array.isArray(data)) {
                 setInventory(prev => ({ ...prev, items: data }));
               }
+              // Also refresh collected keys count
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                const { data: itemsData } = await supabase
+                  .from('event_items')
+                  .select('id')
+                  .eq('event_id', activeOperationId)
+                  .eq('claimed_by', user.id);
+                if (itemsData) {
+                  setCollectedKeys(itemsData.length);
+                }
+              }
             };
             fetchEventItems();
+            setTimeout(() => setIsRefreshing(false), 500);
+          }}
+          className="fixed top-20 right-4 z-[99999] w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+      )}
+
+      {/* Right Side FABs */}
+      {activeOperationId && (
+        <div className="fixed bottom-[140px] right-4 flex flex-col items-center gap-3 z-[99999]">
+        {/* Admin Spawn Vault FAB */}
+        {inventory.role === 'admin' && (
+          <button
+            onClick={() => {
+              if (socket) {
+                socket.emit('dev:spawn_near');
+              }
+            }}
+            className="w-12 h-12 rounded-full bg-accent-orange/30 border border-accent-orange/50 flex items-center justify-center text-accent-orange hover:bg-accent-orange/40 transition-all"
+          >
+            <Trophy className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Crosshair FAB */}
+        <button
+          onClick={() => {
+            if (mapInstance) {
+              mapInstance.setView(userLocation, 16);
+            }
           }}
           className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
         >
-          <RefreshCw className="w-5 h-5" />
+          <Crosshair className="w-5 h-5" />
+        </button>
+
+        {/* Audio Toggle FAB */}
+        <button
+          onClick={toggleAudio}
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+        >
+          {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
         </button>
       </div>
       )}
 
       {/* Claim Overlay */}
       {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-75 fade-in duration-300 ease-out">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-75 slide-in-from-bottom-10 fade-in duration-300 ease-out">
           <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
             {claimOverlay} - {collectedKeys}/{requiredKeys}
           </div>
