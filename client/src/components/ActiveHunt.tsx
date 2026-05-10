@@ -36,6 +36,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [registeredEventsData, setRegisteredEventsData] = useState<Array<{ id: string; title: string; start_time: string }>>([]);
   const [operationTitle, setOperationTitle] = useState<string | null>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
+  const [nearbyItem, setNearbyItem] = useState<any>(null);
 
   // Fetch operation title when activeOperationId changes
   useEffect(() => {
@@ -171,6 +172,32 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [hexCode, setHexCode] = useState('0x000000');
   const [isClaimed, setIsClaimed] = useState(false);
 
+  // Track nearest item when user location or items change
+  useEffect(() => {
+    const items = inventory.items;
+    if (items && items.length > 0) {
+      let nearest = null;
+      let minDistance = Infinity;
+
+      items.forEach((item: any) => {
+        const dist = getDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          Number(item.lat),
+          Number(item.lng)
+        );
+        if (dist < minDistance && dist < 25) {
+          minDistance = dist;
+          nearest = item;
+        }
+      });
+
+      setNearbyItem(nearest);
+    } else {
+      setNearbyItem(null);
+    }
+  }, [userLocation, inventory.items]);
+
   // Web Audio API for radar ping
   const playPing = useCallback(() => {
     const audioCtx = audioCtxRef.current;
@@ -196,10 +223,46 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     oscillator.stop(audioCtx.currentTime + 0.1);
   }, [nearestVaultDistance]);
 
+  // Handle claiming nearby item
+  const handleClaimItem = useCallback(async () => {
+    if (!nearbyItem) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Update item in database
+      const { error } = await supabase
+        .from('event_items')
+        .update({ is_claimed: true, claimed_by: user.id })
+        .eq('id', nearbyItem.id);
+
+      if (error) {
+        console.error('Error claiming item:', error);
+        setError('Failed to claim item');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+
+      // Remove from local state
+      setInventory(prev => ({
+        ...prev,
+        items: prev.items.filter((item: any) => item.id !== nearbyItem.id)
+      }));
+
+      setNearbyItem(null);
+      setError('KEY SECURED');
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      console.error('Error in handleClaimItem:', err);
+    }
+  }, [nearbyItem]);
+
   // Audio toggle handler
   const toggleAudio = useCallback(() => {
     const newState = !audioEnabled;
     setAudioEnabled(newState);
+
     
     if (newState && !audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -792,6 +855,16 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-accent-orange/30 border-2 border-accent-orange rounded-lg text-sm font-black text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
         >
           ВЗЛОМАТЬ DEADDROP
+        </button>
+      )}
+
+      {/* Crypto Key Pickup Button */}
+      {nearbyItem && (
+        <button
+          onClick={handleClaimItem}
+          className="absolute bottom-32 left-1/2 -translate-x-1/2 z-[99999] px-8 py-4 bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 rounded-lg text-lg font-black text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
+        >
+          [ EXTRACT CRYPTO-KEY ]
         </button>
       )}
 
