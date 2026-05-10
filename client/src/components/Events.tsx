@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, TrendingUp, Target, X, Wallet, Activity, User } from 'lucide-react';
+import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Socket } from 'socket.io-client';
 
@@ -31,6 +31,7 @@ interface Event {
   status: string;
   max_participants: number;
   participants: Participant[];
+  required_keys?: number;
 }
 
 export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange }: EventsProps) {
@@ -45,6 +46,21 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState<'time' | 'entry' | 'pool'>('time');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const getDifficulty = (requiredKeys?: number): { label: string; color: string } => {
+    if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400' };
+    if (requiredKeys <= 2) return { label: 'EASY', color: 'text-green-400' };
+    if (requiredKeys <= 4) return { label: 'MEDIUM', color: 'text-yellow-400' };
+    return { label: 'HARD', color: 'text-red-400' };
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadEvents();
+    await loadRegisteredEvents();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const canDeploy = (startTime: string): boolean => {
     const now = new Date();
@@ -366,9 +382,18 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       </div>
 
       {/* Header */}
-      <div className="flex flex-col space-y-1">
-        <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
-        <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Live Operations</p>
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col space-y-1">
+          <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
+          <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Live Operations</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        >
+          <RefreshCw className={`w-5 h-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Event Cards */}
@@ -406,11 +431,21 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     {getTimeUntilEvent(event.start_time).text}
                   </span>
                 </div>
-                {registeredEvents.has(event.id) && (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
-                    ENTERED ✓
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${getDifficulty(event.required_keys).color}`}>
+                    {getDifficulty(event.required_keys).label}
                   </span>
-                )}
+                  {event.required_keys && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/50">
+                      {event.required_keys} KEYS
+                    </span>
+                  )}
+                  {registeredEvents.has(event.id) && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
+                      ENTERED ✓
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Title */}

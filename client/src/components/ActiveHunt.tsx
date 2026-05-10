@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map as MapIcon, X, Volume2, VolumeX, Trophy, User, Target, Crosshair, Lock, Shield, Key, Clock, Activity, Plus, Minus, ShieldAlert, CheckCircle2, TrendingUp, Maximize } from 'lucide-react';
+import { Map as MapIcon, X, Volume2, VolumeX, Trophy, User, Target, Crosshair, Lock, Shield, Key, Clock, Activity, Plus, Minus, ShieldAlert, CheckCircle2, TrendingUp, Maximize, RefreshCw } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
@@ -14,7 +14,7 @@ import { supabase } from '../lib/supabase';
 
 interface ActiveHuntProps {
   initialCoords: { latitude: number; longitude: number; accuracy: number };
-  onBack: () => void;
+  onBack?: () => void;
   onNavigate?: (view: string, operationId?: string) => void;
   theme: 'dark' | 'light';
   balance: number;
@@ -22,11 +22,12 @@ interface ActiveHuntProps {
   activeOperationId?: string | null;
   registeredEvents?: Array<{ id: string; start_time: string }>;
   isAwaitingDeployment?: boolean;
+  requiredKeys?: number;
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 
-export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false, requiredKeys = 0 }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -37,9 +38,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [operationTitle, setOperationTitle] = useState<string | null>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [nearbyItem, setNearbyItem] = useState<any>(null);
-  const [eventKeys, setEventKeys] = useState<number>(0);
+  const [collectedKeys, setCollectedKeys] = useState<number>(0);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
+  const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
 
   // Fetch operation title when activeOperationId changes
   useEffect(() => {
@@ -84,20 +86,19 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       fetchEventItems();
 
-      // Fetch event keys collected from event_participants
+      // Fetch event keys collected from event_items (computed on the fly)
       const fetchEventKeys = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: participantData } = await supabase
-          .from('event_participants')
-          .select('keys_collected')
+        const { data: itemsData } = await supabase
+          .from('event_items')
+          .select('id')
           .eq('event_id', activeOperationId)
-          .eq('user_id', user.id)
-          .single();
+          .eq('claimed_by', user.id);
 
-        if (participantData) {
-          setEventKeys(participantData.keys_collected || 0);
+        if (itemsData) {
+          setCollectedKeys(itemsData.length);
         }
       };
 
@@ -306,9 +307,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }));
 
       setNearbyItem(null);
-      setEventKeys(currentKeys + 1);
+      setCollectedKeys(currentKeys + 1);
       setClaimOverlay('KEY SECURED');
+      setShowKeyGain(true);
       setTimeout(() => setClaimOverlay(null), 2500);
+      setTimeout(() => setShowKeyGain(false), 500);
     } catch (err) {
       console.error('Error in handleClaimItem:', err);
     }
@@ -504,7 +507,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         // Remove vault from map state immediately
         setVaults(prev => prev.filter(v => v.id !== vault.id));
         // Deduct key from event keys
-        setEventKeys(prev => prev - 1);
+        setCollectedKeys(prev => prev - 1);
         // Show key spend animation
         setShowKeySpend(true);
         setTimeout(() => setShowKeySpend(false), 1500);
@@ -880,9 +883,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className="text-2xl font-black text-white">KEYS: {eventKeys} / 3</span>
+                    <span className="text-2xl font-black text-white">KEYS: {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
                       <span className="text-red-500 absolute -bottom-6 animate-bounce">-1</span>
+                    )}
+                    {showKeyGain && (
+                      <span className="text-green-500 absolute -bottom-6 animate-in slide-in-from-bottom-5 fade-in duration-500">+1</span>
                     )}
                   </div>
                 </div>
@@ -990,14 +996,35 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         >
           <Minus className="w-5 h-5" />
         </button>
+
+        {/* Refresh FAB */}
+        <button
+          onClick={() => {
+            // Reload items and keys
+            const fetchEventItems = async () => {
+              const { data, error } = await supabase
+                .from('event_items')
+                .select('*')
+                .eq('event_id', activeOperationId)
+                .eq('is_claimed', false);
+              if (data && Array.isArray(data)) {
+                setInventory(prev => ({ ...prev, items: data }));
+              }
+            };
+            fetchEventItems();
+          }}
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
       </div>
       )}
 
       {/* Claim Overlay */}
       {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-50 fade-in duration-300">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-75 fade-in duration-300 ease-out">
           <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
-            {claimOverlay} - {eventKeys}/3
+            {claimOverlay} - {collectedKeys}/{requiredKeys}
           </div>
         </div>
       )}
@@ -1036,14 +1063,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Connection Error Overlay - Non-destructive overlay */}
       {showConnectionError && !isConnected && (
-        <div className="fixed inset-0 z-[9999999] bg-red-900/90 flex flex-col items-center justify-center pointer-events-auto">
+        <div className="fixed inset-0 z-[9999999] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto">
           <div className="text-center">
-            <p className="text-2xl font-black text-red-400 uppercase tracking-widest animate-pulse">
+            <p className="text-2xl font-black text-red-500 uppercase tracking-widest animate-pulse">
               CONNECTION LOST. RECONNECTING...
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest rounded-lg transition-colors"
+              className="mt-4 px-6 py-2 bg-white text-black hover:bg-gray-200 font-bold uppercase tracking-widest rounded-lg transition-colors"
             >
               REFRESH
             </button>
@@ -1051,14 +1078,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </div>
       )}
 
-      {/* GPS Error Warning Bar */}
-      {(gpsAccuracy > 50 || isGpsError) && (
-        <div className="fixed top-0 left-0 right-0 z-[90] bg-red-900/90 backdrop-blur-sm py-2 px-4">
-          <p className="text-center text-xs font-black text-red-300 uppercase tracking-widest">
-            CRITICAL: GPS SIGNAL LOST. CHECK LOCATION PERMISSIONS.
-          </p>
-        </div>
-      )}
 
       {/* Error Toast */}
       <AnimatePresence>
