@@ -33,7 +33,7 @@ export default function App() {
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
-  const [activeOperationId, setActiveOperationId] = useState<string | null>(() => localStorage.getItem('activeOperationId') || null);
+  const [activeOperationId, setActiveOperationId] = useState<string | null>(() => typeof window !== 'undefined' ? localStorage.getItem('activeOperationId') : null);
   const [registeredEvents, setRegisteredEvents] = useState<Array<{ id: string; start_time: string }>>([]);
 
   // Calculate isAwaitingDeployment based on registered events

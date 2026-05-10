@@ -149,10 +149,10 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
         />
         
         {/* Loot Animations */}
-        {lootAnimations.map((animation) => (
+        {(lootAnimations || []).map((animation) => (
           <Marker
             key={animation.id}
-            position={[animation.lat, animation.lng]}
+            position={[Number(animation.lat), Number(animation.lng)]}
             icon={L.divIcon({
               className: 'custom-loot-icon',
               html: `<div style="
@@ -169,10 +169,10 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
         ))}
 
         {/* Reward Animations */}
-        {rewards.map((reward) => (
+        {(rewards || []).map((reward) => (
           <Marker
             key={reward.id}
-            position={[reward.lat, reward.lng]}
+            position={[Number(reward.lat), Number(reward.lng)]}
             icon={L.divIcon({
               className: 'custom-reward-icon',
               html: `<div style="
@@ -190,10 +190,10 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
         ))}
 
         {/* Key Items */}
-        {items.map((item) => (
+        {(items || []).map((item) => (
           <Marker
             key={item.id}
-            position={[item.lat, item.lng]}
+            position={[Number(item.lat), Number(item.lng)]}
             icon={L.divIcon({
               className: 'custom-key-icon',
               html: `<div style="
