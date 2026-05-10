@@ -64,6 +64,7 @@ interface MapViewProps {
   items?: any[];
   onVaultClaim?: (vaultId: string) => void;
   shouldCenter?: boolean;
+  onMapReady?: (map: any) => void;
 }
 
 function RecenterMap({ pos, shouldCenter }: { pos: [number, number]; shouldCenter: boolean }) {
@@ -76,8 +77,17 @@ function RecenterMap({ pos, shouldCenter }: { pos: [number, number]; shouldCente
   return null;
 }
 
+function MapReady({ onMapReady }: { onMapReady?: (map: any) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (onMapReady) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+  return null;
+}
 
-export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
+export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false, onMapReady }: MapViewProps) {
   return (
     <div className="w-full h-full relative group">
       {/* Map Scanning line effect */}
@@ -189,6 +199,7 @@ export default function MapView({ userPos, accuracy, theme, vaults = [], lootAni
           />
         ))}
 
+        <MapReady onMapReady={onMapReady} />
         <RecenterMap pos={userPos} shouldCenter={shouldCenter} />
       </MapContainer>
 

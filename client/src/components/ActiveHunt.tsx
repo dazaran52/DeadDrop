@@ -35,29 +35,48 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [localIsAwaitingDeployment, setLocalIsAwaitingDeployment] = useState(false);
   const [registeredEventsData, setRegisteredEventsData] = useState<Array<{ id: string; title: string; start_time: string }>>([]);
   const [operationTitle, setOperationTitle] = useState<string | null>(null);
+  const [mapInstance, setMapInstance] = useState<any>(null);
 
   // Fetch operation title when activeOperationId changes
   useEffect(() => {
     if (activeOperationId) {
+      // Fetch operation title
       const fetchOperationTitle = async () => {
-        try {
-          const { data: event } = await supabase
-            .from('events')
-            .select('title')
-            .eq('id', activeOperationId)
-            .single();
+        const { data, error } = await supabase
+          .from('events')
+          .select('title')
+          .eq('id', activeOperationId)
+          .single();
 
-          if (event) {
-            setOperationTitle(event.title);
-          }
-        } catch (err) {
-          console.error('Error fetching operation title:', err);
+        if (error) {
+          console.error('Error fetching operation title:', error);
+        } else if (data) {
+          setOperationTitle(data.title);
         }
       };
 
       fetchOperationTitle();
-    } else {
-      setOperationTitle(null);
+
+      // Fetch event items from Supabase
+      const fetchEventItems = async () => {
+        console.log('--- FETCHING ITEMS FOR EVENT:', activeOperationId);
+        const { data, error } = await supabase
+          .from('event_items')
+          .select('*')
+          .eq('event_id', activeOperationId)
+          .eq('is_claimed', false);
+
+        if (error) console.error('SUPABASE ERROR:', error);
+        if (data) {
+          setInventory(prev => ({
+            ...prev,
+            items: data
+          }));
+          console.log('--- MAP ITEMS LOADED:', data);
+        }
+      };
+
+      fetchEventItems();
     }
   }, [activeOperationId]);
 
@@ -700,6 +719,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               rewards={rewards}
               items={inventory.items}
               shouldCenter={shouldCenterMap}
+              onMapReady={setMapInstance}
               onVaultClaim={(vaultId) => {
                 if (socket) {
                   socket.emit('vault:claim', { vaultId });
@@ -792,12 +812,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         {/* Zoom In FAB */}
         <button
           onClick={() => {
-            const mapContainer = document.querySelector('.leaflet-container');
-            if (mapContainer) {
-              const map = (mapContainer as any)._leaflet_map;
-              if (map) {
-                map.zoomIn();
-              }
+            if (mapInstance) {
+              mapInstance.zoomIn();
             }
           }}
           className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
@@ -808,12 +824,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         {/* Zoom Out FAB */}
         <button
           onClick={() => {
-            const mapContainer = document.querySelector('.leaflet-container');
-            if (mapContainer) {
-              const map = (mapContainer as any)._leaflet_map;
-              if (map) {
-                map.zoomOut();
-              }
+            if (mapInstance) {
+              mapInstance.zoomOut();
             }
           }}
           className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
