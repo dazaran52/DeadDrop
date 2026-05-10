@@ -68,10 +68,11 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
 
   // Pull-to-Refresh handlers
   const handleTouchStart = (e: TouchEvent) => {
-    if (window.scrollY === 0) {
-      setTouchStartY(e.touches[0].clientY);
-      setIsPulling(true);
+    if (window.scrollY > 0 || document.documentElement.scrollTop > 0) {
+      return;
     }
+    setTouchStartY(e.touches[0].clientY);
+    setIsPulling(true);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -463,14 +464,15 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         </div>
       ) : (
         <div
-          className="space-y-6"
+          className="space-y-6 transition-transform duration-300 ease-out"
+          style={{ transform: pullY > 0 ? `translateY(${pullY}px)` : 'translateY(0)' }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           {/* Pull indicator */}
           {pullY > 0 && (
-            <div className="flex justify-center py-4 transition-transform duration-300" style={{ transform: `translateY(${pullY}px)` }}>
+            <div className="flex justify-center py-4">
               <RefreshCw className={`w-6 h-6 text-white/50 ${pullY > 50 ? 'animate-spin' : ''}`} />
             </div>
           )}

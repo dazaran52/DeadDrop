@@ -521,11 +521,15 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               .single();
 
             if (participantData) {
-              await supabase
+              const { error } = await supabase
                 .from('event_participants')
                 .update({ keys_balance: (participantData.keys_balance || 0) - requiredKeys })
                 .eq('event_id', activeOperationId)
                 .eq('user_id', user.id);
+
+              if (error) {
+                console.error('Error updating keys_balance:', error);
+              }
             }
           }
         };
@@ -907,10 +911,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                     <Key className="w-5 h-5 text-white/70" />
                     <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
-                      <span className="text-red-500 absolute -bottom-6 animate-bounce">-{requiredKeys}</span>
+                      <span className="text-red-500 absolute -top-4 right-0 animate-bounce">-{requiredKeys}</span>
                     )}
                     {showKeyGain && (
-                      <span className="text-green-500 absolute -bottom-6 animate-in slide-in-from-bottom-5 fade-in duration-500">+1</span>
+                      <span className="text-green-500 absolute -bottom-6 transition-all duration-500 opacity-100 scale-100 translate-y-0">+1</span>
                     )}
                     {requiredKeys > 0 && collectedKeys >= requiredKeys && (
                       <span className="text-xs text-green-500 animate-bounce absolute -bottom-4 left-0 w-max">VAULT UNLOCK READY</span>
@@ -996,7 +1000,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Map Refresh - Top Right */}
       {mapInstance && (
-        <div className="fixed top-32 right-4 z-[99999] bg-black/50 p-2 rounded-full backdrop-blur-md">
+        <div className="fixed top-[130px] right-4 z-[99999] bg-black/50 p-2 rounded-full backdrop-blur-md">
           <button
             onClick={() => {
               setIsRefreshing(true);
@@ -1074,7 +1078,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Claim Overlay */}
       {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-150 fade-in duration-300 ease-out">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm transition-all duration-300 ease-out transform opacity-100 scale-100 translate-y-0">
           <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
             {claimOverlay} - {collectedKeys}/{requiredKeys}
           </div>
