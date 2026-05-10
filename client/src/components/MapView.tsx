@@ -76,35 +76,6 @@ function RecenterMap({ pos, shouldCenter }: { pos: [number, number]; shouldCente
   return null;
 }
 
-function ZoomControl() {
-  const map = useMap();
-
-  const handleZoomIn = () => {
-    map.zoomIn();
-  };
-
-  const handleZoomOut = () => {
-    map.zoomOut();
-  };
-
-  return (
-    <div className="fixed right-4 bottom-[220px] z-[99999] bg-black/80 backdrop-blur-md border border-white/10 rounded-full flex flex-col overflow-hidden">
-      <button
-        onClick={handleZoomIn}
-        className="w-12 h-12 flex items-center justify-center hover:bg-white/10 transition-colors"
-      >
-        <Plus size={20} className="text-white" />
-      </button>
-      <div className="border-b border-white/10" />
-      <button
-        onClick={handleZoomOut}
-        className="w-12 h-12 flex items-center justify-center hover:bg-white/10 transition-colors"
-      >
-        <Minus size={20} className="text-white" />
-      </button>
-    </div>
-  );
-}
 
 export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
   return (
@@ -218,7 +189,6 @@ export default function MapView({ userPos, accuracy, theme, vaults = [], lootAni
           />
         ))}
 
-        <ZoomControl />
         <RecenterMap pos={userPos} shouldCenter={shouldCenter} />
       </MapContainer>
 

@@ -281,6 +281,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // Listen for inventory initialization
       socketInstance.on('inventory:init', (inventoryData) => {
+        console.log('--- FETCHING ITEMS FOR EVENT:', activeOperationId);
         console.log('FETCHED ITEMS:', inventoryData?.items);
         console.log('Получен инвентарь:', inventoryData);
         if (inventoryData) {
@@ -289,6 +290,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             balance: inventoryData.balance ?? 0,
             role: inventoryData.role || 'user'
           });
+          console.log('--- MAP ITEMS LOADED:', inventoryData.items);
         }
       });
 
@@ -751,7 +753,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* FAB Buttons Container */}
       {activeOperationId && (
-        <div className="fixed right-4 bottom-[110px] z-[99999] flex flex-col gap-4">
+        <div className="fixed right-4 bottom-[120px] flex flex-col items-center gap-3 z-[99999]">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
@@ -785,6 +787,38 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
         >
           <Crosshair className="w-5 h-5" />
+        </button>
+
+        {/* Zoom In FAB */}
+        <button
+          onClick={() => {
+            const mapContainer = document.querySelector('.leaflet-container');
+            if (mapContainer) {
+              const map = (mapContainer as any)._leaflet_map;
+              if (map) {
+                map.zoomIn();
+              }
+            }
+          }}
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
+
+        {/* Zoom Out FAB */}
+        <button
+          onClick={() => {
+            const mapContainer = document.querySelector('.leaflet-container');
+            if (mapContainer) {
+              const map = (mapContainer as any)._leaflet_map;
+              if (map) {
+                map.zoomOut();
+              }
+            }
+          }}
+          className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
+        >
+          <Minus className="w-5 h-5" />
         </button>
       </div>
       )}
