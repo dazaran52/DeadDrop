@@ -67,12 +67,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .eq('is_claimed', false);
 
         if (error) console.error('SUPABASE ERROR:', error);
-        if (data) {
+        if (data && Array.isArray(data)) {
           setInventory(prev => ({
             ...prev,
             items: data
           }));
           console.log('--- MAP ITEMS LOADED:', data);
+        } else {
+          console.warn('Supabase returned invalid or empty data:', data);
         }
       };
 
@@ -304,12 +306,23 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         console.log('FETCHED ITEMS:', inventoryData?.items);
         console.log('Получен инвентарь:', inventoryData);
         if (inventoryData) {
-          setInventory({
-            items: inventoryData.items || [],
-            balance: inventoryData.balance ?? 0,
-            role: inventoryData.role || 'user'
-          });
-          console.log('--- MAP ITEMS LOADED:', inventoryData.items);
+          const items = inventoryData.items;
+          if (Array.isArray(items) && items.length > 0) {
+            setInventory({
+              items: items,
+              balance: inventoryData.balance ?? 0,
+              role: inventoryData.role || 'user'
+            });
+            console.log('--- MAP ITEMS LOADED:', items);
+          } else {
+            console.warn('Blocked invalid map items update from socket (inventory:init):', items);
+            // Only update balance and role, preserve existing items
+            setInventory(prev => ({
+              items: prev.items,
+              balance: inventoryData.balance ?? prev.balance,
+              role: inventoryData.role ?? prev.role
+            }));
+          }
         }
       });
 
@@ -317,11 +330,22 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       socketInstance.on('inventory:update', (inventoryData) => {
         console.log('Инвентарь обновлен:', inventoryData);
         if (inventoryData) {
-          setInventory(prev => ({
-            items: inventoryData.items ?? prev.items,
-            balance: inventoryData.balance ?? prev.balance,
-            role: inventoryData.role ?? prev.role
-          }));
+          const items = inventoryData.items;
+          if (Array.isArray(items)) {
+            setInventory(prev => ({
+              items: items,
+              balance: inventoryData.balance ?? prev.balance,
+              role: inventoryData.role ?? prev.role
+            }));
+          } else {
+            console.warn('Blocked invalid map items update from socket (inventory:update):', items);
+            // Only update balance and role, preserve existing items
+            setInventory(prev => ({
+              items: prev.items,
+              balance: inventoryData.balance ?? prev.balance,
+              role: inventoryData.role ?? prev.role
+            }));
+          }
         }
       });
 
