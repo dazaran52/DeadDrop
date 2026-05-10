@@ -106,7 +106,7 @@ function ZoomControl() {
   );
 }
 
-export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
+export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false }: MapViewProps) {
   return (
     <div className="w-full h-full relative group">
       {/* Map Scanning line effect */}
