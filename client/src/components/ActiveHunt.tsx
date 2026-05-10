@@ -37,6 +37,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [operationTitle, setOperationTitle] = useState<string | null>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [nearbyItem, setNearbyItem] = useState<any>(null);
+  const [eventKeys, setEventKeys] = useState<number>(0);
+  const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
 
   // Fetch operation title when activeOperationId changes
   useEffect(() => {
@@ -80,6 +82,25 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       };
 
       fetchEventItems();
+
+      // Fetch event keys collected from event_participants
+      const fetchEventKeys = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: participantData } = await supabase
+          .from('event_participants')
+          .select('keys_collected')
+          .eq('event_id', activeOperationId)
+          .eq('user_id', user.id)
+          .single();
+
+        if (participantData) {
+          setEventKeys(participantData.keys_collected || 0);
+        }
+      };
+
+      fetchEventKeys();
     }
   }, [activeOperationId]);
 
@@ -284,8 +305,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }));
 
       setNearbyItem(null);
-      setError('KEY SECURED');
-      setTimeout(() => setError(null), 3000);
+      setEventKeys(currentKeys + 1);
+      setClaimOverlay('KEY SECURED');
+      setTimeout(() => setClaimOverlay(null), 2500);
     } catch (err) {
       console.error('Error in handleClaimItem:', err);
     }
@@ -852,10 +874,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className="text-2xl font-black text-white">{keys}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-white/70">{balance} Kč</span>
+                    <span className="text-2xl font-black text-white">KEYS: {eventKeys} / 3</span>
                   </div>
                 </div>
                 <div className="text-right">
@@ -895,7 +914,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {nearbyItem && (
         <button
           onClick={handleClaimItem}
-          className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-[99999] w-[80%] max-w-sm rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
+          className="fixed bottom-[130px] left-1/2 -translate-x-1/2 z-[999999] w-[85%] max-w-sm rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
         >
           CLAIM KEY
         </button>
@@ -963,6 +982,15 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           <Minus className="w-5 h-5" />
         </button>
       </div>
+      )}
+
+      {/* Claim Overlay */}
+      {claimOverlay && (
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
+            {claimOverlay} - {eventKeys}/3
+          </div>
+        </div>
       )}
 
       {/* DEV Menu Toggle */}
