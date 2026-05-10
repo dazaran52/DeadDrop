@@ -39,6 +39,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [nearbyItem, setNearbyItem] = useState<any>(null);
   const [eventKeys, setEventKeys] = useState<number>(0);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
+  const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
 
   // Fetch operation title when activeOperationId changes
   useEffect(() => {
@@ -502,6 +503,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setNearestVaultId(null);
         // Remove vault from map state immediately
         setVaults(prev => prev.filter(v => v.id !== vault.id));
+        // Deduct key from event keys
+        setEventKeys(prev => prev - 1);
+        // Show key spend animation
+        setShowKeySpend(true);
+        setTimeout(() => setShowKeySpend(false), 1500);
         // Add independent reward animation
         const reward = {
           id: vault.id,
@@ -872,9 +878,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             <div className="absolute top-20 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
                     <span className="text-2xl font-black text-white">KEYS: {eventKeys} / 3</span>
+                    {showKeySpend && (
+                      <span className="text-red-500 absolute -bottom-6 animate-bounce">-1</span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
@@ -904,7 +913,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               socket.emit('vault:claim', { vaultId: nearestVaultId });
             }
           }}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-accent-orange/30 border-2 border-accent-orange rounded-lg text-sm font-black text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
+          className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg bg-accent-orange/30 border-2 border-accent-orange text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
         >
           OPEN VAULT
         </button>
@@ -914,7 +923,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {nearbyItem && (
         <button
           onClick={handleClaimItem}
-          className="fixed bottom-[130px] left-1/2 -translate-x-1/2 z-[999999] w-[85%] max-w-sm rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
+          className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
         >
           CLAIM KEY
         </button>
@@ -986,7 +995,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Claim Overlay */}
       {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm animate-in zoom-in-50 fade-in duration-300">
           <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
             {claimOverlay} - {eventKeys}/3
           </div>
@@ -1027,14 +1036,17 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Connection Error Overlay - Non-destructive overlay */}
       {showConnectionError && !isConnected && (
-        <div className="absolute inset-0 bg-red-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
+        <div className="fixed inset-0 z-[9999999] bg-red-900/90 flex flex-col items-center justify-center pointer-events-auto">
           <div className="text-center">
             <p className="text-2xl font-black text-red-400 uppercase tracking-widest animate-pulse">
-              CRITICAL ERROR: UPLINK LOST
+              CONNECTION LOST. RECONNECTING...
             </p>
-            <p className="text-sm font-bold text-red-300 uppercase tracking-widest mt-2">
-              RECONNECTING...
-            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold uppercase tracking-widest rounded-lg transition-colors"
+            >
+              REFRESH
+            </button>
           </div>
         </div>
       )}
