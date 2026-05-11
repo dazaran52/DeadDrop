@@ -509,27 +509,23 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setVaults(prev => prev.filter(v => v.id !== vault.id));
         // Deduct required_keys from event keys
         setCollectedKeys(prev => prev - requiredKeys);
-        // Update DB: subtract required_keys from keys_balance
+        // Update DB: hard reset keys_balance to 0
         const updateKeysBalance = async () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            const { data: participantData } = await supabase
+            const { data, error } = await supabase
               .from('event_participants')
-              .select('keys_balance')
-              .eq('event_id', activeOperationId)
+              .update({ keys_balance: 0 })
               .eq('user_id', user.id)
-              .single();
+              .eq('event_id', activeOperationId)
+              .select();
 
-            if (participantData) {
-              const { error } = await supabase
-                .from('event_participants')
-                .update({ keys_balance: (participantData.keys_balance || 0) - requiredKeys })
-                .eq('event_id', activeOperationId)
-                .eq('user_id', user.id);
+            console.log('VAULT OPEN DB RESPONSE:', data, error);
 
-              if (error) {
-                console.error('Error updating keys_balance:', error);
-              }
+            if (error) {
+              console.error('Error updating keys_balance:', error);
+            } else {
+              setCollectedKeys(0);
             }
           }
         };
@@ -998,9 +994,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </div>
       )}
 
-      {/* Map Refresh - Top Right */}
-      {mapInstance && (
-        <div className="fixed top-[130px] right-4 z-[99999] bg-black/50 p-2 rounded-full backdrop-blur-md">
+      {/* Right Side FABs - Bottom Right */}
+      {activeOperationId && (
+        <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
+        {/* Map Refresh Button */}
+        {mapInstance && (
           <button
             onClick={() => {
               setIsRefreshing(true);
@@ -1030,16 +1028,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               fetchEventItems();
               setTimeout(() => setIsRefreshing(false), 500);
             }}
-            className="w-12 h-12 flex items-center justify-center text-white/80 hover:text-white transition-all"
+            className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/70 transition-all"
           >
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Right Side FABs - Bottom Right */}
-      {activeOperationId && (
-        <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
