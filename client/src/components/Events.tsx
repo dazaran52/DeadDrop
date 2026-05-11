@@ -647,7 +647,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   </button>
                   {!insufficientFunds && !modalError && (
                     <button
-                      onClick={handleConfirmJoin}
+                      onClick={handleJoinEvent}
                       disabled={isJoining}
                       className={`flex-1 py-3 font-bold rounded-full transition-colors ${isJoining ? 'bg-green-600 text-white/70 cursor-not-allowed' : 'bg-green-500 text-white hover:bg-green-600'}`}
                     >
