@@ -91,16 +91,23 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: participantData } = await supabase
+        const { data: participantData, error } = await supabase
           .from('event_participants')
           .select('keys_balance')
           .eq('event_id', activeOperationId)
           .eq('user_id', user.id)
           .single();
 
-        if (participantData) {
-          setCollectedKeys(participantData.keys_balance || 0);
+        if (error || !participantData) {
+          // User is not a participant - kick them out
+          localStorage.removeItem('activeOperationId');
+          if (onNavigate) {
+            onNavigate('events');
+          }
+          return;
         }
+
+        setCollectedKeys(participantData.keys_balance || 0);
       };
 
       fetchEventKeys();
@@ -737,14 +744,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {/* GPS Error Banner */}
       <AnimatePresence>
         {isGpsError && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="z-[60] bg-accent-orange text-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-3 overflow-hidden border-b border-white/10"
+            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[999999] bg-red-900/90 border border-red-500/50 text-red-100 px-4 py-2 rounded-full text-xs font-mono tracking-widest shadow-[0_0_15px_rgba(220,38,38,0.5)] flex items-center gap-2"
           >
-            <ShieldAlert className="w-5 h-5 animate-pulse" />
-            ⚠️ CRITICAL: GPS SIGNAL LOST OR DENIED. CHECK DEVICE PERMISSIONS. ⚠️
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            GPS SIGNAL SEARCHING...
           </motion.div>
         )}
       </AnimatePresence>
