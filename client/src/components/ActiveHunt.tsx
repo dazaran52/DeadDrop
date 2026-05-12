@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Map as MapIcon, X, Volume2, VolumeX, Trophy, User, Target, Crosshair, Lock, Shield, Key, Clock, Activity, Plus, Minus, ShieldAlert, CheckCircle2, TrendingUp, Maximize, RefreshCw } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
-import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
+import { getDistance } from '../utils/geoUtils';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
 import confetti from 'canvas-confetti';
@@ -42,6 +42,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [matchResult, setMatchResult] = useState<MatchResult>('playing');
   const [canExit, setCanExit] = useState(false);
   const [requiredKeys, setRequiredKeys] = useState<number>(0);
+  const [vaultLocation, setVaultLocation] = useState<{ lat: number; lng: number; reward_amount: number } | null>(null);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
   const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
@@ -111,6 +112,28 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       };
 
       fetchEventKeys();
+
+      // Fetch vault location from vaults table
+      const fetchVaultLocation = async () => {
+        const { data: vaultData, error } = await supabase
+          .from('vaults')
+          .select('lat, lng, reward_amount')
+          .eq('event_id', activeOperationId)
+          .single();
+
+        if (error || !vaultData) {
+          console.error('Error fetching vault location:', error);
+          return;
+        }
+
+        setVaultLocation({
+          lat: vaultData.lat,
+          lng: vaultData.lng,
+          reward_amount: vaultData.reward_amount
+        });
+      };
+
+      fetchVaultLocation();
     }
   }, [activeOperationId]);
 
@@ -548,17 +571,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setTimeout(() => setError(null), 3000);
       });
 
-      // Listen for player profile sync (from profiles table) - now handled in App.tsx
-      // socketInstance.on('player:sync', (profileData) => {
-      //   console.log('Получен профиль:', profileData);
-      //   if (profileData) {
-      //     setProfile({
-      //       keys: profileData.keys ?? 0,
-      //       balance: profileData.balance ?? 0
-      //     });
-      //   }
-      // });
-
       // Listen for no keys error
       socketInstance.on('error:no_keys', (error) => {
         console.error('Ошибка ключей:', error.message);
@@ -609,20 +621,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             return;
           }
 
-          // Get event prize_pool
-          const { data: eventData, error: eventFetchError } = await supabase
-            .from('events')
-            .select('prize_pool')
-            .eq('id', activeOperationId)
-            .single();
-
-          if (eventFetchError) {
-            console.error('Error fetching event prize_pool:', eventFetchError);
-            setError('TRANSACTION FAILED: Could not fetch event data');
-            return;
-          }
-
-          const reward = eventData?.prize_pool || 5000;
+          // Use vault reward amount
+          const reward = vaultLocation?.reward_amount || 5000;
 
           // Update user balance
           const { error: balanceError } = await supabase
@@ -739,11 +739,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   }, [socket, vaults]);
 
   useEffect(() => {
+    if (!vaultLocation) return;
+
     const d = getDistance(
       userLocation.latitude,
       userLocation.longitude,
-      TARGET_LOCATION.lat,
-      TARGET_LOCATION.lng
+      vaultLocation.lat,
+      vaultLocation.lng
     );
     setDistance(d);
 
@@ -754,7 +756,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     } else {
       setTrackingState('OUT_OF_SECTOR');
     }
-  }, [userLocation, isClaimed]);
+  }, [userLocation, isClaimed, vaultLocation]);
 
   // Hex code simulation
   useEffect(() => {
@@ -767,9 +769,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   }, [isDecrypting, isClaimed]);
 
   const simulateTeleport = () => {
+    if (!vaultLocation) return;
     setUserLocation({
-      latitude: TARGET_LOCATION.lat + 0.00901, // ~1km away
-      longitude: TARGET_LOCATION.lng,
+      latitude: vaultLocation.lat + 0.00901, // ~1km away
+      longitude: vaultLocation.lng,
       accuracy: 5
     });
   };
@@ -1160,12 +1163,51 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         {/* Admin Spawn Vault FAB */}
         {inventory.role === 'admin' && (
           <button
-            onClick={() => {
-              if (socket && activeOperationId) {
-                socket.emit('dev:spawn_near', {
-                  event_id: activeOperationId,
-                  lat: userLocation.latitude,
-                  lng: userLocation.longitude
+            onClick={async () => {
+              if (!activeOperationId) return;
+
+              // Check if vault already exists for this event
+              const { data: existingVault } = await supabase
+                .from('vaults')
+                .select('id')
+                .eq('event_id', activeOperationId)
+                .single();
+
+              if (existingVault) {
+                // Update existing vault
+                await supabase
+                  .from('vaults')
+                  .update({
+                    lat: userLocation.latitude,
+                    lng: userLocation.longitude,
+                    is_active: true
+                  })
+                  .eq('id', existingVault.id);
+              } else {
+                // Insert new vault
+                await supabase
+                  .from('vaults')
+                  .insert({
+                    event_id: activeOperationId,
+                    lat: userLocation.latitude,
+                    lng: userLocation.longitude,
+                    reward_amount: 5000,
+                    is_active: true
+                  });
+              }
+
+              // Refresh vault location
+              const { data: vaultData } = await supabase
+                .from('vaults')
+                .select('lat, lng, reward_amount')
+                .eq('event_id', activeOperationId)
+                .single();
+
+              if (vaultData) {
+                setVaultLocation({
+                  lat: vaultData.lat,
+                  lng: vaultData.lng,
+                  reward_amount: vaultData.reward_amount
                 });
               }
             }}
