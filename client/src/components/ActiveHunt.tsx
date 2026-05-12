@@ -43,6 +43,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [canExit, setCanExit] = useState(false);
   const [requiredKeys, setRequiredKeys] = useState<number>(0);
   const [vaultLocation, setVaultLocation] = useState<{ lat: number; lng: number; reward_amount: number } | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
   const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
@@ -641,7 +642,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             .eq('id', user.id);
 
           if (balanceError) {
-            console.error('Error updating balance:', balanceError);
+            console.error('FULL DB ERROR (balance update):', balanceError);
             setError('TRANSACTION FAILED: Could not update balance');
             return;
           }
@@ -653,7 +654,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             .eq('id', activeOperationId);
 
           if (eventStatusError) {
-            console.error('Error updating event status:', eventStatusError);
+            console.error('FULL DB ERROR (status update):', eventStatusError);
             setError('SYSTEM ERROR: DATABASE REJECTED STATUS CHANGE');
             return;
           }
@@ -934,7 +935,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                   <TrendingUp className="w-4 h-4 text-accent-orange" />
                   <span className="text-[10px] uppercase font-black text-text-muted">Deployment Reward</span>
                 </div>
-                <span className="text-3xl font-black text-text-main">10,000 CZK</span>
+                <span className="text-3xl font-black text-text-main">{vaultLocation?.reward_amount || 0} CZK</span>
               </div>
             </div>
 
@@ -945,7 +946,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               RETURN TO TERMINAL
             </button>
           </motion.div>
-        ) : trackingState === 'VAULT_REACHED' ? (
+        ) : trackingState === 'VAULT_REACHED' && isExtracting ? (
           <motion.div 
             key="vault-ui"
             initial={{ opacity: 0 }}
@@ -1076,8 +1077,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         <button
           onClick={() => {
             if (socket && !isClaimingRef.current && collectedKeys >= requiredKeys) {
-              isClaimingRef.current = true;
-              socket.emit('vault:claim', { vaultId: nearestVaultId });
+              setIsExtracting(true);
             }
           }}
           disabled={collectedKeys < requiredKeys}
