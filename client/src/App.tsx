@@ -29,7 +29,6 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [balance, setBalance] = useState<number>(0);
-  const [keys, setKeys] = useState<number>(0);
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
@@ -98,7 +97,6 @@ export default function App() {
       } else {
         setIsAppReady(false);
         setBalance(0);
-        setKeys(0);
       }
     });
 
@@ -109,7 +107,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('balance, keys')
+        .select('balance')
         .eq('id', userId)
         .single();
 
@@ -121,7 +119,6 @@ export default function App() {
 
       if (data) {
         setBalance(data.balance ?? 0);
-        setKeys(data.keys ?? 0);
         setIsAppReady(true);
       }
     } catch (err) {
@@ -156,7 +153,6 @@ export default function App() {
       console.log('Real-time profile update:', profileData);
       if (profileData) {
         setBalance(profileData.balance ?? 0);
-        setKeys(profileData.keys ?? 0);
       }
     });
   };
@@ -226,7 +222,6 @@ export default function App() {
           }}
           theme={theme}
           balance={balance}
-          keys={keys}
           activeOperationId={activeOperationId}
           registeredEvents={registeredEvents}
           isAwaitingDeployment={isAwaitingDeployment}
@@ -250,7 +245,7 @@ export default function App() {
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} balance={balance} keys={keys} />;
+      }} balance={balance} />;
       case 'admin': return <AdminPanel />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {

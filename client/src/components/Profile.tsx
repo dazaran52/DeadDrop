@@ -10,10 +10,9 @@ import { LogOut } from 'lucide-react';
 interface ProfileProps {
   onLogout: () => void;
   balance: number;
-  keys: number;
 }
 
-export default function Profile({ onLogout, balance, keys }: ProfileProps) {
+export default function Profile({ onLogout, balance }: ProfileProps) {
   const [username, setUsername] = useState<string>('GHOST_USER');
 
   useEffect(() => {
@@ -57,14 +56,6 @@ export default function Profile({ onLogout, balance, keys }: ProfileProps) {
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center space-y-2">
           <div className="text-3xl font-black text-white tracking-tighter">0</div>
           <div className="text-[8px] font-bold text-white/40 uppercase tracking-widest text-center">TOTAL EARNINGS</div>
-        </div>
-      </div>
-
-      {/* Keys */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">CRYPTOGRAPHIC KEYS</span>
-          <span className="text-[10px] font-bold text-accent-orange uppercase tracking-widest">{keys} INVENTORY</span>
         </div>
       </div>
 

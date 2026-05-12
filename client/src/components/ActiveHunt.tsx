@@ -19,7 +19,6 @@ interface ActiveHuntProps {
   onNavigate?: (view: string, operationId?: string) => void;
   theme: 'dark' | 'light';
   balance: number;
-  keys: number;
   activeOperationId?: string | null;
   registeredEvents?: Array<{ id: string; start_time: string }>;
   isAwaitingDeployment?: boolean;
@@ -28,7 +27,7 @@ interface ActiveHuntProps {
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
 type MatchResult = 'playing' | 'victory' | 'defeat';
 
-export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
+export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
   const [distance, setDistance] = useState(0);
   const [trackingState, setTrackingState] = useState<TrackingState>('OUT_OF_SECTOR');
@@ -1162,8 +1161,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         {inventory.role === 'admin' && (
           <button
             onClick={() => {
-              if (socket) {
-                socket.emit('dev:spawn_near');
+              if (socket && activeOperationId) {
+                socket.emit('dev:spawn_near', {
+                  event_id: activeOperationId,
+                  lat: userLocation.latitude,
+                  lng: userLocation.longitude
+                });
               }
             }}
             className="w-12 h-12 rounded-full bg-accent-orange/30 border border-accent-orange/50 flex items-center justify-center text-accent-orange hover:bg-accent-orange/40 transition-all"
