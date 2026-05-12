@@ -41,6 +41,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [nearbyItem, setNearbyItem] = useState<any>(null);
   const [collectedKeys, setCollectedKeys] = useState<number>(0);
   const [matchResult, setMatchResult] = useState<MatchResult>('playing');
+  const [canExit, setCanExit] = useState(false);
   const [requiredKeys, setRequiredKeys] = useState<number>(0);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
@@ -132,11 +133,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // Play victory sound (optional - prepare code)
       // new Audio('/victory.mp3').play().catch(() => {});
+
+      // Enable exit button after 3 seconds
+      setTimeout(() => setCanExit(true), 3000);
     } else if (matchResult === 'defeat') {
       // Vibrate on defeat
       if (navigator.vibrate) {
         navigator.vibrate([800]);
       }
+
+      // Enable exit button after 3 seconds
+      setTimeout(() => setCanExit(true), 3000);
+    } else if (matchResult === 'playing') {
+      // Reset canExit when match resets
+      setCanExit(false);
     }
   }, [matchResult]);
 
@@ -1214,6 +1224,18 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <h1 className="text-5xl font-black text-white tracking-tighter uppercase">VAULT SECURED</h1>
               <p className="text-3xl font-bold text-green-300">+{balance} Kč</p>
               <p className="text-sm text-white/60 font-medium">Reward credited to your account</p>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('activeOperationId');
+                  if (onNavigate) {
+                    onNavigate('events');
+                  }
+                }}
+                disabled={!canExit}
+                className={`mt-8 px-8 py-4 font-bold rounded-full uppercase tracking-widest transition-all ${canExit ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-green-500/50 text-white/50 cursor-not-allowed'}`}
+              >
+                BACK TO LOBBY
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -1246,7 +1268,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                     onNavigate('events');
                   }
                 }}
-                className="mt-8 px-8 py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full uppercase tracking-widest transition-all"
+                disabled={!canExit}
+                className={`mt-8 px-8 py-4 font-bold rounded-full uppercase tracking-widest transition-all ${canExit ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-red-500/50 text-white/50 cursor-not-allowed'}`}
               >
                 RETURN TO LOBBY
               </button>

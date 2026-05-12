@@ -173,7 +173,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('*')
-        .in('status', ['upcoming', 'live'])
+        .in('status', ['live'])
         .order('start_time', { ascending: true });
 
       console.log('FETCH_EVENTS_RESULT:', eventsData);
