@@ -68,6 +68,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
 
   // Pull-to-Refresh handlers
   const handleTouchStart = (e: TouchEvent) => {
+    // Only allow pull when at the very top of the page
     if (window.scrollY > 0 || document.documentElement.scrollTop > 0) {
       return;
     }
@@ -76,11 +77,17 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   };
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (isPulling && window.scrollY === 0) {
+    // Only apply pull if we're pulling down AND still at the top of the page
+    if (isPulling && window.scrollY === 0 && document.documentElement.scrollTop === 0) {
       const currentY = e.touches[0].clientY;
       const diff = currentY - touchStartY;
+      // Only pull if moving down (positive diff)
       if (diff > 0) {
         setPullY(Math.min(diff * 0.4, 100));
+      } else {
+        // If moving up, cancel the pull
+        setIsPulling(false);
+        setPullY(0);
       }
     } else {
       setIsPulling(false);
