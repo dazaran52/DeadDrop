@@ -594,41 +594,53 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         // Add reward to user balance and update event status
         const handleEndgame = async () => {
           const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            // Get event prize_pool
-            const { data: eventData } = await supabase
-              .from('events')
-              .select('prize_pool')
-              .eq('id', activeOperationId)
-              .single();
-
-            const reward = eventData?.prize_pool || 5000;
-
-            // Update user balance
-            const { error: balanceError } = await supabase
-              .from('profiles')
-              .update({ balance: balance + reward })
-              .eq('id', user.id);
-
-            if (balanceError) {
-              console.error('Error updating balance:', balanceError);
-            }
-
-            // Update event status to completed
-            const { error: eventError } = await supabase
-              .from('events')
-              .update({ status: 'completed' })
-              .eq('id', activeOperationId);
-
-            if (eventError) {
-              console.error('Error updating event status:', eventError);
-            }
-
-            // Set victory if no errors
-            if (!balanceError && !eventError) {
-              setMatchResult('victory');
-            }
+          if (!user) {
+            console.error('User not authenticated');
+            setError('TRANSACTION FAILED: User not authenticated');
+            return;
           }
+
+          // Get event prize_pool
+          const { data: eventData, error: eventFetchError } = await supabase
+            .from('events')
+            .select('prize_pool')
+            .eq('id', activeOperationId)
+            .single();
+
+          if (eventFetchError) {
+            console.error('Error fetching event prize_pool:', eventFetchError);
+            setError('TRANSACTION FAILED: Could not fetch event data');
+            return;
+          }
+
+          const reward = eventData?.prize_pool || 5000;
+
+          // Update user balance
+          const { error: balanceError } = await supabase
+            .from('profiles')
+            .update({ balance: balance + reward })
+            .eq('id', user.id);
+
+          if (balanceError) {
+            console.error('Error updating balance:', balanceError);
+            setError('TRANSACTION FAILED: Could not update balance');
+            return;
+          }
+
+          // Update event status to completed
+          const { error: eventStatusError } = await supabase
+            .from('events')
+            .update({ status: 'completed' })
+            .eq('id', activeOperationId);
+
+          if (eventStatusError) {
+            console.error('Error updating event status:', eventStatusError);
+            setError('TRANSACTION FAILED: Could not update event status');
+            return;
+          }
+
+          // Set victory if no errors
+          setMatchResult('victory');
         };
         handleEndgame();
 
