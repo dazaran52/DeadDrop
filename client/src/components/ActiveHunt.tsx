@@ -11,6 +11,7 @@ import Radar from './Radar';
 import { getDistance, TARGET_LOCATION } from '../utils/geoUtils';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
+import confetti from 'canvas-confetti';
 
 interface ActiveHuntProps {
   initialCoords: { latitude: number; longitude: number; accuracy: number };
@@ -25,6 +26,7 @@ interface ActiveHuntProps {
 }
 
 type TrackingState = 'OUT_OF_SECTOR' | 'IN_SECTOR' | 'VAULT_REACHED';
+type MatchResult = 'playing' | 'victory' | 'defeat';
 
 export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, balance, keys, activeOperationId, registeredEvents = [], isAwaitingDeployment = false }: ActiveHuntProps) {
   const [userLocation, setUserLocation] = useState(initialCoords);
@@ -38,6 +40,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [nearbyItem, setNearbyItem] = useState<any>(null);
   const [collectedKeys, setCollectedKeys] = useState<number>(0);
+  const [matchResult, setMatchResult] = useState<MatchResult>('playing');
   const [requiredKeys, setRequiredKeys] = useState<number>(0);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
@@ -110,6 +113,59 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       fetchEventKeys();
     }
   }, [activeOperationId]);
+
+  // Trigger confetti and vibration on victory
+  useEffect(() => {
+    if (matchResult === 'victory') {
+      // Fire confetti
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#00ff00', '#00cc00', '#009900', '#ffffff', '#ffff00']
+      });
+
+      // Vibrate if supported
+      if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 1000]);
+      }
+
+      // Play victory sound (optional - prepare code)
+      // new Audio('/victory.mp3').play().catch(() => {});
+    } else if (matchResult === 'defeat') {
+      // Vibrate on defeat
+      if (navigator.vibrate) {
+        navigator.vibrate([800]);
+      }
+    }
+  }, [matchResult]);
+
+  // Supabase Realtime listener for event status changes
+  useEffect(() => {
+    if (!activeOperationId) return;
+
+    const channel = supabase
+      .channel('event_status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${activeOperationId}`
+        },
+        (payload) => {
+          if (payload.new.status === 'completed' && matchResult !== 'victory') {
+            setMatchResult('defeat');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeOperationId, matchResult]);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -502,7 +558,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       });
 
       // Listen for vault claimed
-      socketInstance.on('vault:claimed', (vault) => {
+      socketInstance.on('vault:claimed', async (vault) => {
         console.log('Сейф открыт:', vault);
         // Reset claiming flag
         isClaimingRef.current = false;
@@ -534,6 +590,48 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           }
         };
         updateKeysBalance();
+
+        // Add reward to user balance and update event status
+        const handleEndgame = async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            // Get event prize_pool
+            const { data: eventData } = await supabase
+              .from('events')
+              .select('prize_pool')
+              .eq('id', activeOperationId)
+              .single();
+
+            const reward = eventData?.prize_pool || 5000;
+
+            // Update user balance
+            const { error: balanceError } = await supabase
+              .from('profiles')
+              .update({ balance: balance + reward })
+              .eq('id', user.id);
+
+            if (balanceError) {
+              console.error('Error updating balance:', balanceError);
+            }
+
+            // Update event status to completed
+            const { error: eventError } = await supabase
+              .from('events')
+              .update({ status: 'completed' })
+              .eq('id', activeOperationId);
+
+            if (eventError) {
+              console.error('Error updating event status:', eventError);
+            }
+
+            // Set victory if no errors
+            if (!balanceError && !eventError) {
+              setMatchResult('victory');
+            }
+          }
+        };
+        handleEndgame();
+
         // Show key spend animation with required_keys amount
         setShowKeySpend(true);
         setTimeout(() => setShowKeySpend(false), 1500);
@@ -1082,6 +1180,68 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           </div>
         </div>
       )}
+
+      {/* Victory Screen */}
+      <AnimatePresence>
+        {matchResult === 'victory' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-green-900/40 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="text-center space-y-6 px-8"
+            >
+              <div className="w-24 h-24 rounded-full bg-green-500/20 border-4 border-green-400 flex items-center justify-center mx-auto animate-pulse">
+                <Trophy className="w-12 h-12 text-green-400" />
+              </div>
+              <h1 className="text-5xl font-black text-white tracking-tighter uppercase">VAULT SECURED</h1>
+              <p className="text-3xl font-bold text-green-300">+{balance} Kč</p>
+              <p className="text-sm text-white/60 font-medium">Reward credited to your account</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Defeat Screen */}
+      <AnimatePresence>
+        {matchResult === 'defeat' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-red-900/40 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="text-center space-y-6 px-8"
+            >
+              <div className="w-24 h-24 rounded-full bg-red-500/20 border-4 border-red-400 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-12 h-12 text-red-400" />
+              </div>
+              <h1 className="text-4xl font-black text-white tracking-tighter uppercase">OPERATION TERMINATED</h1>
+              <p className="text-lg text-red-300 font-medium">VAULT COMPROMISED BY ANOTHER HUNTER</p>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('activeOperationId');
+                  if (onNavigate) {
+                    onNavigate('events');
+                  }
+                }}
+                className="mt-8 px-8 py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full uppercase tracking-widest transition-all"
+              >
+                RETURN TO LOBBY
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* DEV Menu Toggle */}
       {process.env.NODE_ENV === 'development' && (
