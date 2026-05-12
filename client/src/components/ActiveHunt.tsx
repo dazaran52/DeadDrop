@@ -1341,12 +1341,55 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               STATUS: {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
             </div>
             <button
-              onClick={() => {
-                if (socket) {
-                  socket.emit('dev:spawn_near');
+              onClick={async () => {
+                if (!activeOperationId) return;
+
+                // Check if vault already exists for this event
+                const { data: existingVault } = await supabase
+                  .from('vaults')
+                  .select('id')
+                  .eq('event_id', activeOperationId)
+                  .single();
+
+                if (existingVault) {
+                  // Update existing vault
+                  await supabase
+                    .from('vaults')
+                    .update({
+                      lat: userLocation.latitude,
+                      lng: userLocation.longitude,
+                      is_active: true
+                    })
+                    .eq('id', existingVault.id);
+                } else {
+                  // Insert new vault
+                  await supabase
+                    .from('vaults')
+                    .insert({
+                      event_id: activeOperationId,
+                      lat: userLocation.latitude,
+                      lng: userLocation.longitude,
+                      reward_amount: 5000,
+                      is_active: true
+                    });
+                }
+
+                // Refresh vault location
+                const { data: vaultData } = await supabase
+                  .from('vaults')
+                  .select('lat, lng, reward_amount')
+                  .eq('event_id', activeOperationId)
+                  .single();
+
+                if (vaultData) {
+                  setVaultLocation({
+                    lat: vaultData.lat,
+                    lng: vaultData.lng,
+                    reward_amount: vaultData.reward_amount
+                  });
                 }
               }}
-              disabled={!isConnected}
+              disabled={!activeOperationId}
               className="w-full px-3 py-2 bg-accent-orange/20 border border-accent-orange/40 rounded text-[9px] font-black text-accent-orange uppercase tracking-wider hover:bg-accent-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               SPAWN DEADDROP
