@@ -644,7 +644,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
           if (eventStatusError) {
             console.error('Error updating event status:', eventStatusError);
-            setError('TRANSACTION FAILED: Could not update event status');
+            setError('SYSTEM ERROR: DATABASE REJECTED STATUS CHANGE');
             return;
           }
 
@@ -1062,7 +1062,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       </AnimatePresence>
 
       {/* DeadDrop Claim Button */}
-      {nearestVaultDistance !== null && nearestVaultDistance < 15 && nearestVaultId && isConnected && (
+      {matchResult === 'playing' && nearestVaultDistance !== null && nearestVaultDistance < 15 && nearestVaultId && isConnected && (
         <button
           onClick={() => {
             if (socket && !isClaimingRef.current && collectedKeys >= requiredKeys) {
@@ -1082,7 +1082,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Crypto Key Pickup Button */}
-      {nearbyItem && (
+      {matchResult === 'playing' && nearbyItem && (
         <button
           onClick={handleClaimItem}
           className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
@@ -1092,7 +1092,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Zoom Controls - Left Bottom */}
-      {mapInstance && activeOperationId && (
+      {mapInstance && activeOperationId && matchResult === 'playing' && (
         <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
           {/* Zoom In FAB */}
           <button
@@ -1121,7 +1121,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Right Side FABs - Bottom Right */}
-      {activeOperationId && (
+      {activeOperationId && matchResult === 'playing' && (
         <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
         {/* Map Refresh Button */}
         {mapInstance && (
@@ -1267,7 +1267,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <Trophy className="w-12 h-12 text-green-400" />
               </div>
               <h1 className="text-5xl font-black text-white tracking-tighter uppercase">VAULT SECURED</h1>
-              <p className="text-3xl font-bold text-green-300">+{balance} Kč</p>
+              <p className="text-3xl font-bold text-green-300">+{vaultLocation?.reward_amount || 0} Kč</p>
               <p className="text-sm text-white/60 font-medium">Reward credited to your account</p>
               <button
                 onClick={() => {
