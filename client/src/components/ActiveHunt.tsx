@@ -45,6 +45,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [vaultLocation, setVaultLocation] = useState<{ lat: number; lng: number; reward_amount: number } | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [claimOverlay, setClaimOverlay] = useState<string | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
   const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -150,6 +151,15 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         origin: { y: 0.6 },
         colors: ['#00ff00', '#00cc00', '#009900', '#ffffff', '#ffff00']
       });
+
+      // Play glitch sound effect
+      try {
+        const glitchSound = new Audio('/sounds/glitch.mp3');
+        glitchSound.volume = 0.3;
+        glitchSound.play().catch(err => console.log('Audio play failed:', err));
+      } catch (err) {
+        console.log('Audio creation failed:', err);
+      }
 
       // Vibrate if supported
       if (navigator.vibrate) {
@@ -620,7 +630,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
             console.error('User not authenticated');
-            setError('TRANSACTION FAILED: User not authenticated');
+            setDbError('TRANSACTION FAILED: User not authenticated');
             return;
           }
 
@@ -643,7 +653,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
           if (balanceError) {
             console.error('FULL DB ERROR (balance update):', balanceError);
-            setError('TRANSACTION FAILED: Could not update balance');
+            setDbError(`DB ERROR: ${balanceError.message} (Code: ${balanceError.code})`);
             return;
           }
 
@@ -655,7 +665,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
           if (eventStatusError) {
             console.error('FULL DB ERROR (status update):', eventStatusError);
-            setError('SYSTEM ERROR: DATABASE REJECTED STATUS CHANGE');
+            setDbError(`DB ERROR: ${eventStatusError.message} (Code: ${eventStatusError.code})`);
             return;
           }
 
@@ -926,7 +936,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               />
             </div>
             
-            <h2 className="text-5xl font-black text-text-main tracking-tighter mb-4 scale-110">COMPLETE.</h2>
+            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-white to-green-400 tracking-tighter mb-4 scale-110 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]">COMPLETE.</h2>
+            {dbError && (
+              <div className="bg-red-900/80 border border-red-500 text-red-200 font-mono text-xs p-4 rounded-lg mb-4 max-w-md">
+                {dbError}
+              </div>
+            )}
             <p className="text-xs font-mono text-text-muted uppercase tracking-widest mb-12">Asset decrypted and archived</p>
             
             <div className="grid grid-cols-1 gap-4 w-full max-w-xs mb-12">
@@ -1073,7 +1088,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       </AnimatePresence>
 
       {/* DeadDrop Claim Button */}
-      {matchResult === 'playing' && nearestVaultDistance !== null && nearestVaultDistance < 15 && nearestVaultId && isConnected && (
+      {matchResult === 'playing' && !isExtracting && nearestVaultDistance !== null && nearestVaultDistance < 15 && nearestVaultId && isConnected && (
         <button
           onClick={() => {
             if (socket && !isClaimingRef.current && collectedKeys >= requiredKeys) {
@@ -1265,7 +1280,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-green-900/40 backdrop-blur-md"
+            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-black/60 backdrop-blur-lg animate-pulse"
           >
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
