@@ -81,11 +81,13 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     if (isPulling && window.scrollY === 0 && document.documentElement.scrollTop === 0) {
       const currentY = e.touches[0].clientY;
       const diff = currentY - touchStartY;
-      // Only pull if moving down (positive diff)
-      if (diff > 0) {
-        setPullY(Math.min(diff * 0.4, 100));
+      // Only pull if moving down (positive diff) and beyond threshold
+      if (diff > 10) {
+        // Apply resistance and limit max pull
+        const pullDistance = Math.min((diff - 10) * 0.15, 100);
+        setPullY(pullDistance);
       } else {
-        // If moving up, cancel the pull
+        // If not past threshold, cancel the pull
         setIsPulling(false);
         setPullY(0);
       }
