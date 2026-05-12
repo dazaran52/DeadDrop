@@ -970,7 +970,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Zoom Controls - Left Bottom */}
-      {mapInstance && (
+      {mapInstance && activeOperationId && (
         <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
           {/* Zoom In FAB */}
           <button
