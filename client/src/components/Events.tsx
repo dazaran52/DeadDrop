@@ -480,8 +480,8 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           onTouchEnd={handleTouchEnd}
         >
           {/* Pull indicator */}
-          {pullY > 0 && (
-            <div className="flex justify-center py-4">
+          {pullY > 20 && (
+            <div className="flex justify-center py-4 transition-all duration-300 ease-out opacity-0 scale-90" style={{ opacity: Math.min((pullY - 20) / 30, 1), transform: `scale(${Math.min((pullY - 20) / 30 + 0.9, 1)})` }}>
               <RefreshCw className={`w-6 h-6 text-white/50 ${pullY > 50 ? 'animate-spin' : ''}`} />
             </div>
           )}
