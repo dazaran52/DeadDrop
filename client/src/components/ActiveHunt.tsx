@@ -119,18 +119,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .from('vaults')
           .select('lat, lng, reward_amount')
           .eq('event_id', activeOperationId)
-          .single();
+          .maybeSingle();
 
-        if (error || !vaultData) {
+        if (error) {
           console.error('Error fetching vault location:', error);
           return;
         }
 
-        setVaultLocation({
-          lat: vaultData.lat,
-          lng: vaultData.lng,
-          reward_amount: vaultData.reward_amount
-        });
+        if (vaultData) {
+          setVaultLocation({
+            lat: vaultData.lat,
+            lng: vaultData.lng,
+            reward_amount: vaultData.reward_amount
+          });
+        }
       };
 
       fetchVaultLocation();
@@ -566,14 +568,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // Listen for vault errors
       socketInstance.on('vault:error', (error) => {
-        console.error('Ошибка сейфа:', error.message);
+        console.error('Ошибка сейфа:', error);
         setError(error.message);
         setTimeout(() => setError(null), 3000);
       });
 
       // Listen for no keys error
       socketInstance.on('error:no_keys', (error) => {
-        console.error('Ошибка ключей:', error.message);
+        console.error('Ошибка ключей:', error);
         setError(error.message);
         setTimeout(() => setError(null), 3000);
       });
@@ -621,8 +623,16 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             return;
           }
 
-          // Use vault reward amount
-          const reward = vaultLocation?.reward_amount || 5000;
+          // Use vault reward amount or fallback to event prize_pool
+          let reward = vaultLocation?.reward_amount;
+          if (!reward) {
+            const { data: eventData } = await supabase
+              .from('events')
+              .select('prize_pool')
+              .eq('id', activeOperationId)
+              .single();
+            reward = eventData?.prize_pool || 5000;
+          }
 
           // Update user balance
           const { error: balanceError } = await supabase
