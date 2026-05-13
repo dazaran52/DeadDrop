@@ -32,6 +32,8 @@ export default function App() {
   const [balance, setBalance] = useState<number>(0);
   const [username, setUsername] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
@@ -112,7 +114,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('balance, username')
+        .select('balance, username, role, avatar_url')
         .eq('id', userId)
         .single();
 
@@ -125,6 +127,9 @@ export default function App() {
       if (data) {
         setBalance(data.balance ?? 0);
         setUsername(data.username ?? null);
+        setRole(data.role ?? null);
+        setAvatarUrl(data.avatar_url ?? null);
+        setIsSuperUser(data.role === 'admin');
         setUserId(userId);
         setIsAppReady(true);
       }
@@ -262,8 +267,8 @@ export default function App() {
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} balance={balance} username={username} userId={userId} />;
-      case 'admin': return <AdminPanel />;
+      }} balance={balance} username={username} userId={userId} avatarUrl={avatarUrl} onUsernameChange={setUsername} onAvatarChange={setAvatarUrl} />;
+      case 'admin': return <AdminPanel role={role} />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {
           setActiveOperationId(operationId);

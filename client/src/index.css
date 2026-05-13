@@ -91,3 +91,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
+
+/* Glitch effect for alias on hover */
+@keyframes glitch-skew {
+  0%, 100% { transform: skew(0deg); }
+  20% { transform: skew(-2deg); }
+  40% { transform: skew(1deg); }
+  60% { transform: skew(-1deg); }
+  80% { transform: skew(2deg); }
+}
+
+@keyframes glitch-shift {
+  0%, 100% { text-shadow: 0 0 0 transparent; }
+  20% { text-shadow: 2px 0 0 #4ade80, -2px 0 0 #ef4444; }
+  40% { text-shadow: -2px 0 0 #4ade80, 2px 0 0 #ef4444; }
+  60% { text-shadow: 2px 2px 0 #4ade80, -2px -2px 0 #ef4444; }
+  80% { text-shadow: -2px 2px 0 #4ade80, 2px -2px 0 #ef4444; }
+}
+
+.alias-glitch:hover {
+  animation: glitch-skew 0.4s infinite, glitch-shift 0.3s infinite;
+}
