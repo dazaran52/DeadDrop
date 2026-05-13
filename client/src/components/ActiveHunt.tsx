@@ -616,44 +616,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         };
         updateKeysBalance();
 
-        // Add reward to user balance and update event status via RPC
-        const handleEndgame = async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            console.error('User not authenticated');
-            setDbError('TRANSACTION FAILED: User not authenticated');
-            return;
-          }
-
-          // Use vault reward amount or fallback to event prize_pool
-          let reward = vaultLocation?.reward_amount;
-          if (!reward) {
-            const { data: eventData } = await supabase
-              .from('events')
-              .select('prize_pool')
-              .eq('id', activeOperationId)
-              .single();
-            reward = eventData?.prize_pool || 5000;
-          }
-
-          // Call RPC function complete_operation
-          const { error } = await supabase.rpc('complete_operation', {
-            p_user_id: user.id,
-            p_event_id: activeOperationId,
-            p_reward: reward
-          });
-
-          if (error) {
-            console.error('FULL DB ERROR (RPC complete_operation):', error);
-            alert(`TRANSACTION FAILED: ${error.message} (Code: ${error.code})`);
-            setDbError(`DB ERROR: ${error.message} (Code: ${error.code})`);
-            return;
-          }
-
-          // Set victory if no errors
-          setMatchResult('victory');
-        };
-        handleEndgame();
+        // RPC complete_operation is now called directly from startDecryption (real user click)
+        // This handler only resets local UI state when server confirms vault:claimed
 
         // Show key spend animation with required_keys amount
         setShowKeySpend(true);
@@ -779,17 +743,62 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     });
   };
 
-  const startDecryption = () => {
+  const startDecryption = async () => {
     setIsDecrypting(true);
     let prog = 0;
-    const interval = setInterval(() => {
-      prog += 2;
-      setDecryptionProgress(prog);
-      if (prog >= 100) {
-        clearInterval(interval);
-        setTimeout(() => setIsClaimed(true), 500);
-      }
-    }, 60);
+
+    // Run progress animation
+    await new Promise<void>((resolve) => {
+      const interval = setInterval(() => {
+        prog += 2;
+        setDecryptionProgress(prog);
+        if (prog >= 100) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 60);
+    });
+
+    // After animation, call REAL RPC complete_operation
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('RPC FAILED: User not authenticated');
+      alert('CRITICAL DB ERROR: User not authenticated');
+      setDbError('TRANSACTION FAILED: User not authenticated');
+      setIsDecrypting(false);
+      return;
+    }
+
+    // Use vault reward amount or fallback to event prize_pool
+    let reward = vaultLocation?.reward_amount;
+    if (!reward) {
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('prize_pool')
+        .eq('id', activeOperationId)
+        .single();
+      reward = eventData?.prize_pool || 5000;
+    }
+
+    console.log('Calling RPC complete_operation with:', { p_user_id: user.id, p_event_id: activeOperationId, p_reward: reward });
+
+    const { error } = await supabase.rpc('complete_operation', {
+      p_user_id: user.id,
+      p_event_id: activeOperationId,
+      p_reward: reward
+    });
+
+    if (error) {
+      console.error('RPC FAILED:', error);
+      alert(`CRITICAL DB ERROR: ${error.message}`);
+      setDbError(`DB ERROR: ${error.message} (Code: ${error.code})`);
+      setIsDecrypting(false);
+      return;
+    }
+
+    // ONLY on success - show COMPLETE screen
+    setIsClaimed(true);
+    setMatchResult('victory');
   };
 
   const handleReturnToHq = () => {
