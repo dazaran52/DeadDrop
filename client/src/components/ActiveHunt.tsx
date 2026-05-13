@@ -625,7 +625,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         };
         updateKeysBalance();
 
-        // Add reward to user balance and update event status
+        // Add reward to user balance and update event status via RPC
         const handleEndgame = async () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
@@ -645,27 +645,17 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             reward = eventData?.prize_pool || 5000;
           }
 
-          // Update user balance
-          const { error: balanceError } = await supabase
-            .from('profiles')
-            .update({ balance: balance + reward })
-            .eq('id', user.id);
+          // Call RPC function complete_operation
+          const { error } = await supabase.rpc('complete_operation', {
+            p_user_id: user.id,
+            p_event_id: activeOperationId,
+            p_reward: reward
+          });
 
-          if (balanceError) {
-            console.error('FULL DB ERROR (balance update):', balanceError);
-            setDbError(`DB ERROR: ${balanceError.message} (Code: ${balanceError.code})`);
-            return;
-          }
-
-          // Update event status to completed
-          const { error: eventStatusError } = await supabase
-            .from('events')
-            .update({ status: 'completed' })
-            .eq('id', activeOperationId);
-
-          if (eventStatusError) {
-            console.error('FULL DB ERROR (status update):', eventStatusError);
-            setDbError(`DB ERROR: ${eventStatusError.message} (Code: ${eventStatusError.code})`);
+          if (error) {
+            console.error('FULL DB ERROR (RPC complete_operation):', error);
+            alert(`TRANSACTION FAILED: ${error.message} (Code: ${error.code})`);
+            setDbError(`DB ERROR: ${error.message} (Code: ${error.code})`);
             return;
           }
 
@@ -950,16 +940,18 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                   <TrendingUp className="w-4 h-4 text-accent-orange" />
                   <span className="text-[10px] uppercase font-black text-text-muted">Deployment Reward</span>
                 </div>
-                <span className="text-3xl font-black text-text-main">{vaultLocation?.reward_amount || 0} CZK</span>
+                <span className="text-3xl font-black text-green-400 animate-pulse shadow-[0_0_20px_#4ade80]">{vaultLocation?.reward_amount || 0} CZK</span>
               </div>
             </div>
 
-            <button 
-              onClick={handleReturnToHq}
-              className="w-full max-w-xs py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-sm"
-            >
-              RETURN TO TERMINAL
-            </button>
+            {canExit && (
+              <button
+                onClick={handleReturnToHq}
+                className="w-full max-w-xs py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-sm"
+              >
+                RETURN TO TERMINAL
+              </button>
+            )}
           </motion.div>
         ) : trackingState === 'VAULT_REACHED' && isExtracting ? (
           <motion.div 
@@ -1117,7 +1109,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Zoom Controls - Left Bottom */}
-      {mapInstance && activeOperationId && matchResult === 'playing' && (
+      {matchResult === 'playing' && mapInstance && activeOperationId && (
         <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
           {/* Zoom In FAB */}
           <button
@@ -1146,7 +1138,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       )}
 
       {/* Right Side FABs - Bottom Right */}
-      {activeOperationId && matchResult === 'playing' && (
+      {matchResult === 'playing' && activeOperationId && (
         <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
         {/* Map Refresh Button */}
         {mapInstance && (
@@ -1280,8 +1272,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-black/60 backdrop-blur-lg animate-pulse"
+            className="fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
           >
+            {/* Noise Overlay */}
+            <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              animation: 'noise 0.2s infinite'
+            }} />
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
