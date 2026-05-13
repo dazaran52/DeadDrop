@@ -1294,7 +1294,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="text-center space-y-6 px-8"
+              className="relative z-10 text-center space-y-6 px-8 pointer-events-auto"
             >
               <div className="w-24 h-24 rounded-full bg-green-500/20 border-4 border-green-400 flex items-center justify-center mx-auto animate-pulse">
                 <Trophy className="w-12 h-12 text-green-400" />
@@ -1303,14 +1303,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <p className="text-3xl font-bold text-green-300">+{vaultLocation?.reward_amount || 0} Kč</p>
               <p className="text-sm text-white/60 font-medium">Reward credited to your account</p>
               <button
-                onClick={() => {
-                  localStorage.removeItem('activeOperationId');
-                  if (onNavigate) {
-                    onNavigate('events');
-                  }
-                }}
-                disabled={!canExit}
-                className={`mt-8 px-8 py-4 font-bold rounded-full uppercase tracking-widest transition-all ${canExit ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-green-500/50 text-white/50 cursor-not-allowed'}`}
+                onClick={handleReturnToHq}
+                className="relative z-[99999999] pointer-events-auto mt-8 px-8 py-4 font-bold rounded-full uppercase tracking-widest transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
               >
                 BACK TO LOBBY
               </button>
