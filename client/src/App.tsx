@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { useGeolocation } from './hooks/useGeolocation';
 import Login from './components/Login';
 import Profile from './components/Profile';
+import AliasInit from './components/AliasInit';
 import AdminPanel from './components/AdminPanel';
 import Events from './components/Events';
 import BottomNav, { ViewType } from './components/BottomNav';
@@ -29,6 +30,8 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [balance, setBalance] = useState<number>(0);
+  const [username, setUsername] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
@@ -97,6 +100,8 @@ export default function App() {
       } else {
         setIsAppReady(false);
         setBalance(0);
+        setUsername(null);
+        setUserId(null);
       }
     });
 
@@ -107,7 +112,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('balance')
+        .select('balance, username')
         .eq('id', userId)
         .single();
 
@@ -119,6 +124,8 @@ export default function App() {
 
       if (data) {
         setBalance(data.balance ?? 0);
+        setUsername(data.username ?? null);
+        setUserId(userId);
         setIsAppReady(true);
       }
     } catch (err) {
@@ -188,6 +195,16 @@ export default function App() {
     );
   }
 
+  // FORCE ALIAS: block all access until username is set
+  if (isLoggedIn && userId && (!username || username.trim() === '')) {
+    return (
+      <AliasInit
+        userId={userId}
+        onComplete={(newUsername) => setUsername(newUsername)}
+      />
+    );
+  }
+
   if ((error || !coords) && showError) {
     return (
       <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center p-8 text-center space-y-8">
@@ -245,7 +262,7 @@ export default function App() {
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} balance={balance} />;
+      }} balance={balance} username={username} userId={userId} />;
       case 'admin': return <AdminPanel />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {
