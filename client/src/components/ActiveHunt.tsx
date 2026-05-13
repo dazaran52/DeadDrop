@@ -168,20 +168,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // Play victory sound (optional - prepare code)
       // new Audio('/victory.mp3').play().catch(() => {});
-
-      // Enable exit button after 3 seconds
-      setTimeout(() => setCanExit(true), 3000);
     } else if (matchResult === 'defeat') {
       // Vibrate on defeat
       if (navigator.vibrate) {
         navigator.vibrate([800]);
       }
-
-      // Enable exit button after 3 seconds
-      setTimeout(() => setCanExit(true), 3000);
-    } else if (matchResult === 'playing') {
-      // Reset canExit when match resets
-      setCanExit(false);
     }
   }, [matchResult]);
 
@@ -802,11 +793,24 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   };
 
   const handleReturnToHq = () => {
+    // Clear localStorage
+    localStorage.removeItem('activeOperationId');
+
     // Reset all local states
     setIsDecrypting(false);
     setDecryptionProgress(0);
     setIsClaimed(false);
-    onBack();
+    setMatchResult('playing');
+    setCanExit(false);
+    setIsExtracting(false);
+    setDbError(null);
+
+    // Navigate to lobby
+    if (onNavigate) {
+      onNavigate('events');
+    } else {
+      onBack();
+    }
   };
 
   return (
@@ -944,14 +948,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               </div>
             </div>
 
-            {canExit && (
-              <button
-                onClick={handleReturnToHq}
-                className="w-full max-w-xs py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-sm"
-              >
-                RETURN TO TERMINAL
-              </button>
-            )}
+            <button
+              onClick={handleReturnToHq}
+              className="w-full max-w-xs py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-sm"
+            >
+              RETURN TO TERMINAL
+            </button>
           </motion.div>
         ) : trackingState === 'VAULT_REACHED' && isExtracting ? (
           <motion.div 
