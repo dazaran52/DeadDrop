@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   Lock,
   Zap,
+  Pencil,
+  X,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -31,6 +33,9 @@ interface AdminEvent {
   entry_fee: number;
   start_time: string;
   status: string;
+  min_participants: number | null;
+  max_participants: number | null;
+  required_keys: number | null;
 }
 
 export default function AdminPanel({ role }: AdminPanelProps) {
@@ -48,6 +53,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -60,7 +66,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setLoading(true);
     const { data, error: dbError } = await supabase
       .from('events')
-      .select('id, title, prize_pool, entry_fee, start_time, status')
+      .select('id, title, prize_pool, entry_fee, start_time, status, min_participants, max_participants, required_keys')
       .in('status', ['live', 'upcoming'])
       .order('start_time', { ascending: true });
 
@@ -95,6 +101,42 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     );
   }
 
+  // Convert ISO timestamp to value usable by <input type="datetime-local">
+  const isoToDatetimeLocal = (iso: string): string => {
+    const d = new Date(iso);
+    const off = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - off * 60_000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setPrizePool('');
+    setEntryFee('');
+    setStartTime('');
+    setMaxParticipants('20');
+    setMinParticipants('3');
+    setRequiredKeys('4');
+    setEditingId(null);
+  };
+
+  const handleEditClick = (ev: AdminEvent) => {
+    setEditingId(ev.id);
+    setTitle(ev.title);
+    setPrizePool(String(ev.prize_pool));
+    setEntryFee(String(ev.entry_fee));
+    setStartTime(isoToDatetimeLocal(ev.start_time));
+    setMaxParticipants(String(ev.max_participants ?? 20));
+    setMinParticipants(String(ev.min_participants ?? 3));
+    setRequiredKeys(String(ev.required_keys ?? 4));
+    // Scroll to form
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -122,32 +164,42 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       return;
     }
 
-    const { error: insertError } = await supabase.from('events').insert({
+    const payload = {
       title: title.trim(),
       prize_pool: prize,
       entry_fee: fee,
       start_time: new Date(startTime).toISOString(),
-      status: 'upcoming',
       max_participants: maxP,
       min_participants: minP,
       required_keys: reqK,
-    });
+    };
 
-    if (insertError) {
-      console.error('Insert event error:', insertError);
-      setToast({ kind: 'err', msg: `${insertError.message} (${insertError.code})` });
-      setSubmitting(false);
-      return;
+    if (editingId) {
+      const { error: updErr } = await supabase
+        .from('events')
+        .update(payload)
+        .eq('id', editingId);
+      if (updErr) {
+        console.error('Update event error:', updErr);
+        setToast({ kind: 'err', msg: `${updErr.message} (${updErr.code})` });
+        setSubmitting(false);
+        return;
+      }
+      setToast({ kind: 'ok', msg: 'Operation updated' });
+    } else {
+      const { error: insertError } = await supabase
+        .from('events')
+        .insert({ ...payload, status: 'upcoming' });
+      if (insertError) {
+        console.error('Insert event error:', insertError);
+        setToast({ kind: 'err', msg: `${insertError.message} (${insertError.code})` });
+        setSubmitting(false);
+        return;
+      }
+      setToast({ kind: 'ok', msg: 'Operation deployed to grid' });
     }
 
-    setToast({ kind: 'ok', msg: 'Operation deployed to grid' });
-    setTitle('');
-    setPrizePool('');
-    setEntryFee('');
-    setStartTime('');
-    setMaxParticipants('20');
-    setMinParticipants('3');
-    setRequiredKeys('4');
+    resetForm();
     setSubmitting(false);
     fetchEvents();
   };
@@ -309,14 +361,44 @@ export default function AdminPanel({ role }: AdminPanelProps) {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full py-3 bg-green-500/10 border border-green-500/40 text-green-300 text-sm tracking-wider rounded-xl hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-        >
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          <span>{submitting ? 'Deploying…' : 'Deploy Operation'}</span>
-        </button>
+        <div className="flex gap-2">
+          {editingId && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-4 py-3 bg-white/5 border border-white/10 text-white/70 text-sm tracking-wider rounded-xl hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            className={`flex-1 py-3 border text-sm tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 ${
+              editingId
+                ? 'bg-yellow-500/10 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/20'
+                : 'bg-green-500/10 border-green-500/40 text-green-300 hover:bg-green-500/20'
+            }`}
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : editingId ? (
+              <Pencil className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            <span>
+              {submitting
+                ? editingId
+                  ? 'Saving…'
+                  : 'Deploying…'
+                : editingId
+                ? 'Save Changes'
+                : 'Deploy Operation'}
+            </span>
+          </button>
+        </div>
       </form>
 
       {/* EVENTS DASHBOARD */}
@@ -399,6 +481,19 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                     >
                       <StopCircle className="w-3 h-3" />
                       End Event
+                    </button>
+                  )}
+                  {ev.status === 'upcoming' && (
+                    <button
+                      onClick={() => handleEditClick(ev)}
+                      className={`flex-1 py-2 border text-[10px] tracking-[0.2em] uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                        editingId === ev.id
+                          ? 'bg-yellow-500/20 border-yellow-500/60 text-yellow-200'
+                          : 'bg-white/5 border-white/10 text-white/70 hover:border-yellow-500/40 hover:text-yellow-300'
+                      }`}
+                    >
+                      <Pencil className="w-3 h-3" />
+                      {editingId === ev.id ? 'Editing' : 'Edit'}
                     </button>
                   )}
                   <button

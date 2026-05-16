@@ -966,7 +966,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         }
 
         return (
-          <div className="absolute inset-0 z-[9998] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
+          <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
             <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
               Awaiting Deployment Signal
             </div>
