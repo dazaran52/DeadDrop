@@ -106,8 +106,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .single();
 
         if (error || !participantData) {
-          // User is not a participant - soft reset to observer mode
+          // No event_participants record => no spectators allowed.
+          // Hard block: clear active operation and redirect to lobby.
+          console.warn('Access denied: not a participant of', activeOperationId);
           localStorage.removeItem('activeOperationId');
+          if (onNavigate) onNavigate('events');
           return;
         }
 

@@ -155,8 +155,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     fetchEvents();
   };
 
-  const handleForceStart = async (id: string) => {
-    if (!confirm('FORCE START this event now? Status will be set to LIVE.')) return;
+  const handleDeployOperation = async (id: string) => {
+    if (!confirm('DEPLOY this operation now? Status will be set to LIVE.')) return;
     const { error: updErr } = await supabase
       .from('events')
       .update({ status: 'live' })
@@ -166,7 +166,10 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       setToast({ kind: 'err', msg: updErr.message });
       return;
     }
-    setToast({ kind: 'ok', msg: 'Event forced live' });
+    // Optimistic local update so the event immediately shows as LIVE
+    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, status: 'live' } : e)));
+    setToast({ kind: 'ok', msg: 'Operation deployed live' });
+    // Reconcile with backend
     fetchEvents();
   };
 
@@ -322,11 +325,11 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 <div className="flex gap-2 pt-1">
                   {ev.status === 'upcoming' && (
                     <button
-                      onClick={() => handleForceStart(ev.id)}
+                      onClick={() => handleDeployOperation(ev.id)}
                       className="flex-1 py-2 bg-red-500/10 border border-red-500/40 text-red-300 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:bg-red-500/20 hover:border-red-500/60 transition-all flex items-center justify-center gap-1.5"
                     >
                       <Zap className="w-3 h-3" />
-                      Force Start
+                      Deploy Operation
                     </button>
                   )}
                   {ev.status === 'live' && (

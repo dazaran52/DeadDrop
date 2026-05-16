@@ -370,7 +370,8 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     const diffMs = start.getTime() - now.getTime();
 
     if (diffMs < 0) {
-      return { text: '🔴 OPERATION LIVE', isLive: true };
+      // Backend hasn't promoted to live yet - show stale state without fake "LIVE"
+      return { text: 'WAITING FOR DEPLOYMENT', isLive: false };
     }
 
     const totalSec = Math.floor(diffMs / 1000);
@@ -517,10 +518,25 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               {/* Badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className={`w-4 h-4 ${event.status === 'upcoming' ? 'text-yellow-400' : 'text-red-500'}`} />
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${event.status === 'upcoming' ? 'text-yellow-400' : 'text-red-500'}`}>
-                    {event.status === 'upcoming' ? getTimeUntilEvent(event.start_time).text : '🔴 OPERATION LIVE'}
-                  </span>
+                  {event.status === 'upcoming' ? (() => {
+                    const t = getTimeUntilEvent(event.start_time);
+                    const isWaiting = t.text === 'WAITING FOR DEPLOYMENT';
+                    return (
+                      <>
+                        <Clock className={`w-4 h-4 ${isWaiting ? 'text-red-500' : 'text-yellow-400'}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isWaiting ? 'text-red-500' : 'text-yellow-400'}`}>
+                          {t.text}
+                        </span>
+                      </>
+                    );
+                  })() : (
+                    <>
+                      <Clock className="w-4 h-4 text-red-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-red-500">
+                        🔴 OPERATION LIVE
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {event.status === 'upcoming' && (
@@ -601,24 +617,30 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                 </button>
               </div>
 
-              {/* Enter Button */}
+              {/* Enter Button - status-gated, no local-clock unlocking */}
               {registeredEvents.has(event.id) ? (
                 <div className="space-y-2">
-                  <button
-                    onClick={() => handleDeploy(event.id, event.start_time)}
-                    className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
-                      activeOperationId === event.id
-                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
-                        : canDeploy(event.start_time)
-                        ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
-                        : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
-                    }`}
-                    disabled={!canDeploy(event.start_time) && activeOperationId !== event.id}
-                  >
-                    {activeOperationId === event.id ? 'RESUME' : canDeploy(event.start_time) ? 'START EVENT' : 'WAITING FOR DROP'}
-                  </button>
-                  {!canDeploy(event.start_time) && activeOperationId !== event.id && (
-                    <p className="text-xs text-white/40 text-center font-medium">Deployment opens at T-minus 5m</p>
+                  {(() => {
+                    const isLive = event.status === 'live';
+                    const isActiveOp = activeOperationId === event.id;
+                    const enabled = isLive || isActiveOp;
+                    const label = isActiveOp ? 'RESUME' : isLive ? 'START EVENT' : 'WAITING FOR DEPLOYMENT';
+                    return (
+                      <button
+                        onClick={() => handleDeploy(event.id, event.start_time)}
+                        className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
+                          enabled
+                            ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
+                            : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
+                        }`}
+                        disabled={!enabled}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })()}
+                  {event.status !== 'live' && activeOperationId !== event.id && (
+                    <p className="text-xs text-white/40 text-center font-medium">Awaiting backend deployment signal</p>
                   )}
                 </div>
               ) : event.status === 'upcoming' ? (
