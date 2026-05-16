@@ -48,7 +48,7 @@ function generateVaultsAroundPlayer(lat, lng, count = 5) {
       id: `v_${Date.now()}_${i}`,
       lat: lat + latOffset,
       lng: lng + lngOffset,
-      balanceCZK: Math.floor(Math.random() * 4500) + 500,
+      balanceNXC: Math.floor(Math.random() * 4500) + 500,
       status: 'closed',
     });
   }
@@ -129,7 +129,7 @@ io.on('connection', (socket) => {
       
       const vaultsWithCurrencies = newVaults.map(v => ({
         ...v,
-        currencies: getAllCurrencies(v.balanceCZK),
+        currencies: getAllCurrencies(v.balanceNXC),
       }));
       socket.emit('vaults:init', vaultsWithCurrencies);
     }
@@ -183,17 +183,17 @@ io.on('connection', (socket) => {
     // Valid claim
     vault.status = 'opened';
     inventory.keys -= 1;
-    inventory.balance += vault.balanceCZK;
+    inventory.balance += vault.balanceNXC;
     
     const vaultWithCurrencies = {
       ...vault,
-      currencies: getAllCurrencies(vault.balanceCZK),
+      currencies: getAllCurrencies(vault.balanceNXC),
     };
     
     socket.emit('vault:claimed', vaultWithCurrencies);
     socket.emit('inventory:update', inventory);
     io.emit('vault:update', { id: vault.id, status: 'opened' });
-    console.log(`[vault] Игрок ${playerId} открыл сейф ${vault.id} с ${vault.balanceCZK} CZK (расстояние: ${distance.toFixed(1)}м)`);
+    console.log(`[vault] Игрок ${playerId} открыл сейф ${vault.id} с ${vault.balanceNXC} CZK (расстояние: ${distance.toFixed(1)}м)`);
   });
 
   // DEV: Spawn vault near player
@@ -217,7 +217,7 @@ io.on('connection', (socket) => {
       id: `v_${Date.now()}`,
       lat: inventory.position.lat + latOffset,
       lng: inventory.position.lng + lngOffset,
-      balanceCZK: Math.floor(Math.random() * 4500) + 500,
+      balanceNXC: Math.floor(Math.random() * 4500) + 500,
       status: 'closed',
     };
     
@@ -225,7 +225,7 @@ io.on('connection', (socket) => {
     
     const vaultWithCurrencies = {
       ...newVault,
-      currencies: getAllCurrencies(newVault.balanceCZK),
+      currencies: getAllCurrencies(newVault.balanceNXC),
     };
     
     socket.emit('vaults:init', [vaultWithCurrencies]);

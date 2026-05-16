@@ -17,6 +17,7 @@ import AdminPanel from './components/AdminPanel';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
 import AliasInit from './components/AliasInit';
+import Lobby from './components/Lobby';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -131,6 +132,7 @@ export default function App() {
 
     switch (view) {
       case 'dashboard': return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} />;
+      case 'lobby': return <Lobby onStartHunt={() => setView('hunt')} />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
@@ -172,9 +174,7 @@ export default function App() {
             </AnimatePresence>
           </main>
 
-          {view !== 'hunt' && (
-            <BottomNav currentView={view} onViewChange={setView} isSuperUser={isSuperUser} />
-          )}
+          <BottomNav currentView={view} onViewChange={setView} isSuperUser={isSuperUser} />
         </div>
 
         {/* Global Grainy Overlay */}

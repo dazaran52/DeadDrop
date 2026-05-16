@@ -4,9 +4,9 @@
  */
 
 import { motion } from 'framer-motion';
-import { Home, User, Shield } from 'lucide-react';
+import { Home, User, Shield, Crosshair } from 'lucide-react';
 
-export type ViewType = 'dashboard' | 'profile' | 'admin' | 'hunt';
+export type ViewType = 'dashboard' | 'lobby' | 'profile' | 'admin' | 'hunt';
 
 interface BottomNavProps {
   currentView: ViewType;
@@ -17,6 +17,7 @@ interface BottomNavProps {
 export default function BottomNav({ currentView, onViewChange, isSuperUser }: BottomNavProps) {
   const navItems = [
     { id: 'dashboard' as ViewType, label: 'Main', icon: Home },
+    { id: 'lobby' as ViewType, label: 'OPS', icon: Crosshair },
     { id: 'profile' as ViewType, label: 'Profile', icon: User },
     ...(isSuperUser ? [{ id: 'admin' as ViewType, label: 'Admin', icon: Shield }] : []),
   ];

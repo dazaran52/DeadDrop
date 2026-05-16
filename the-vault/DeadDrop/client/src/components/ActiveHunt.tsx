@@ -49,6 +49,27 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
   const [hexCode, setHexCode] = useState('0x000000');
   const [isClaimed, setIsClaimed] = useState(false);
 
+  // Pre-deployment countdown
+  const [countdown, setCountdown] = useState(3);
+  const [showCountdown, setShowCountdown] = useState(true);
+  const [showStartBanner, setShowStartBanner] = useState(false);
+
+  // Countdown timer: 3 → 2 → 1 → 0 → START! → hide
+  useEffect(() => {
+    if (!showCountdown) return;
+    if (countdown <= 0) {
+      setShowStartBanner(true);
+      try { new Audio('/sounds/airhorn.mp3').play(); } catch (_) {}
+      const t = setTimeout(() => {
+        setShowStartBanner(false);
+        setShowCountdown(false);
+      }, 1500);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, showCountdown]);
+
   // Web Audio API for radar ping
   const playPing = useCallback(() => {
     const audioCtx = audioCtxRef.current;
@@ -329,6 +350,57 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
 
   return (
     <div className="flex-1 flex flex-col relative h-full bg-bg-deep overflow-hidden">
+
+      {/* Pre-Deployment Countdown Overlay — covers map+zoom buttons, NOT BottomNav (absolute stays inside this container) */}
+      <AnimatePresence>
+        {showCountdown && (
+          <motion.div
+            key="countdown-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[45] backdrop-blur-2xl bg-black/75 flex flex-col items-center justify-center pointer-events-auto"
+          >
+            <AnimatePresence mode="wait">
+              {showStartBanner ? (
+                <motion.div
+                  key="start"
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 1.6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+                  className="font-black tracking-tighter leading-none select-none"
+                  style={{
+                    fontSize: '88px',
+                    color: '#4ade80',
+                    textShadow: '0 0 80px rgba(74,222,128,0.9), 0 0 160px rgba(74,222,128,0.4)',
+                  }}
+                >
+                  START!
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={countdown}
+                  initial={{ scale: 1.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.4, opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="font-black text-white leading-none select-none"
+                  style={{ fontSize: '120px', textShadow: '0 0 60px rgba(255,255,255,0.25)' }}
+                >
+                  {countdown}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {!showStartBanner && (
+              <p className="text-[10px] font-mono text-white/30 uppercase tracking-[0.5em] mt-8">
+                OPERATION BEGINS IN...
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* GPS Error Banner */}
       <AnimatePresence>
         {isGpsError && (
@@ -536,7 +608,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
               socket.emit('vault:claim', { vaultId: nearestVaultId });
             }
           }}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-accent-orange/30 border-2 border-accent-orange rounded-lg text-sm font-black text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
+          className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 px-8 py-4 bg-accent-orange/30 border-2 border-accent-orange rounded-lg text-sm font-black text-accent-orange uppercase tracking-widest hover:bg-accent-orange/40 transition-all animate-pulse shadow-lg shadow-accent-orange/20"
         >
           ВЗЛОМАТЬ DEADDROP
         </button>
@@ -546,7 +618,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       <button
         onClick={toggleAudio}
         disabled={!isConnected}
-        className="fixed right-4 bottom-32 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-accent-orange/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="fixed right-4 bottom-40 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-accent-orange/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {audioEnabled ? '🔊' : '🔇'}
       </button>
@@ -557,7 +629,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
           setShouldCenterMap(true);
           setTimeout(() => setShouldCenterMap(false), 1000);
         }}
-        className="fixed right-4 bottom-20 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-cyan-500/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors"
+        className="fixed right-4 bottom-28 z-40 w-12 h-12 rounded-full flex items-center justify-center bg-gray-800/90 border border-cyan-500/50 backdrop-blur-sm hover:bg-gray-700/90 transition-colors"
       >
         🎯
       </button>
