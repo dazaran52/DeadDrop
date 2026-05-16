@@ -204,7 +204,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
       // Add independent reward animation
       const reward = {
         id: vault.id,
-        amount: vault.balanceCZK,
+        amount: vault.balanceNXC,
         lat: vault.lat,
         lng: vault.lng,
       };
@@ -401,7 +401,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   <TrendingUp className="w-4 h-4 text-accent-orange" />
                   <span className="text-[10px] uppercase font-black text-text-muted">Deployment Reward</span>
                 </div>
-                <span className="text-3xl font-black text-text-main">10,000 CZK</span>
+                <span className="text-3xl font-black text-text-main">10,000 NXC</span>
               </div>
             </div>
 
@@ -510,7 +510,7 @@ export default function ActiveHunt({ initialCoords, onBack, theme }: ActiveHuntP
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[8px] font-bold text-text-muted uppercase tracking-wider">Balance</span>
-                    <span className="text-base font-black text-accent-blue">{inventory.balance} Kč</span>
+                    <span className="text-base font-black text-accent-blue">{inventory.balance} NXC</span>
                   </div>
                 </div>
                 <div className="text-right">

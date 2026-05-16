@@ -46,7 +46,7 @@ export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps
     { 
       type: 'SUCCESS', 
       msg: 'VAULT UNLOCKED: LETNA', 
-      reward: '+10,000 CZK', 
+      reward: '+10,000 NXC', 
       icon: Zap, 
       color: 'text-accent-green',
       bg: 'bg-accent-green/10',
@@ -64,7 +64,7 @@ export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps
     { 
       type: 'SYSTEM', 
       msg: 'WITHDRAWAL: CRYPTO WALLET', 
-      reward: '-5,000 CZK', 
+      reward: '-5,000 NXC', 
       icon: Wallet, 
       color: 'text-accent-pink',
       bg: 'bg-accent-pink/10',

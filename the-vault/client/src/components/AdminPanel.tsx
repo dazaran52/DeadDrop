@@ -54,7 +54,7 @@ export default function AdminPanel() {
   };
 
   const handleDeploy = () => {
-    alert(`CRITICAL: New DeadDrop Deployed to [${vaultData.lat}, ${vaultData.lng}] with ${vaultData.prize} CZK prize pool.`);
+    alert(`CRITICAL: New DeadDrop Deployed to [${vaultData.lat}, ${vaultData.lng}] with ${vaultData.prize} NXC reward pool.`);
   };
 
   const triggerEMP = () => {
