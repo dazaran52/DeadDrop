@@ -129,7 +129,7 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
                 font-weight: bold;
                 text-shadow: 0 0 10px #00ff00;
                 animation: floatUp 2s ease-out forwards;
-              ">+${animation.amount} Kč</div>`,
+              ">+${animation.amount} NXC</div>`,
               iconSize: [100, 30],
               iconAnchor: [50, 15]
             })}
@@ -150,7 +150,7 @@ export default function Map({ userPos, accuracy, theme, vaults = [], lootAnimati
                 text-shadow: 0 0 15px #00ff00, 0 0 30px #00ff00;
                 animation: rewardFloatUp 2s ease-out forwards;
                 white-space: nowrap;
-              ">+${reward.amount} Kč</div>`,
+              ">+${reward.amount} NXC</div>`,
               iconSize: [150, 40],
               iconAnchor: [75, 20]
             })}

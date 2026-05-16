@@ -32,7 +32,7 @@ export default function Dashboard({ onStartHunt, onToggleSuperUser }: DashboardP
   };
 
   const stats = [
-    { label: 'EQUITY:', value: '10,000 CZK', icon: Wallet },
+    { label: 'EQUITY:', value: '10,000 NXC', icon: Wallet },
     { label: 'KEYS:', value: '3', icon: KeyIcon },
     { label: 'SESSION RANK:', value: '#1,230', icon: TrendingUp },
   ];

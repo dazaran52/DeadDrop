@@ -16,12 +16,16 @@ import Profile from './components/Profile';
 import AdminPanel from './components/AdminPanel';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
+import AliasInit from './components/AliasInit';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [view, setView] = useState<ViewType>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSuperUser, setIsSuperUser] = useState(false);
@@ -35,21 +39,47 @@ export default function App() {
     }
   }, [theme]);
 
+  const loadProfile = async (uid: string) => {
+    setProfileLoading(true);
+    const { data } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', uid)
+      .maybeSingle();
+    setUsername(data?.username ?? '');
+    setProfileLoading(false);
+  };
+
   useEffect(() => {
-    // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setUserId(session.user.id);
+        loadProfile(session.user.id);
+      }
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setUserId(session.user.id);
+        loadProfile(session.user.id);
+      } else {
+        setIsLoggedIn(false);
+        setUserId(null);
+        setUsername(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading && isLoggedIn) {
+  // Gatekeeper: force alias creation if user has no username
+  if (isLoggedIn && userId && !profileLoading && username === '') {
+    return <AliasInit userId={userId} onComplete={(name) => setUsername(name)} />;
+  }
+
+  if ((loading && isLoggedIn) || (isLoggedIn && profileLoading)) {
     return (
       <div className="min-h-screen bg-bg-deep flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-12 h-12 text-accent-orange animate-spin" />
