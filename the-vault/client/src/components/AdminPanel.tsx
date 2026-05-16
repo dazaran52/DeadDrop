@@ -210,7 +210,7 @@ export default function AdminPanel() {
             />
           </div>
           <div className="col-span-2 space-y-2">
-            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Prize Pool (CZK)</label>
+            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">REWARD POOL (NXC)</label>
             <div className="relative">
               <input 
                 type="text" 

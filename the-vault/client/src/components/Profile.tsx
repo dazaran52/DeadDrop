@@ -184,12 +184,7 @@ export default function Profile({ onLogout, theme, onThemeToggle }: ProfileProps
         <span className="text-[10px] font-black text-text-muted uppercase tracking-[0.3em] mb-1">Total Assets</span>
         <div className="flex items-baseline gap-2">
           <h3 className="text-4xl font-black text-text-main tracking-tighter">10,000</h3>
-          <span className="text-xl font-bold text-text-main opacity-40 italic uppercase">CZK</span>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] text-text-muted uppercase border-t border-border-main pt-4">
-          <span className="bg-white/5 px-2 py-1">~396 EUR</span>
-          <span className="bg-white/5 px-2 py-1">~1,712 PLN</span>
-          <span className="bg-white/5 px-2 py-1">~16,850 UAH</span>
+          <span className="text-xl font-bold text-text-main opacity-40 italic uppercase">NXC</span>
         </div>
       </div>
 
