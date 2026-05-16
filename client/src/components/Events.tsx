@@ -5,8 +5,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import Leaderboard from './Leaderboard';
 import { Socket } from 'socket.io-client';
 
 interface EventsProps {
@@ -52,6 +53,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState(0);
   const [, setNowTick] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // 1s tick for live countdown
   useEffect(() => {
@@ -447,14 +449,30 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
           <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Live Operations</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-        >
-          <RefreshCw className={`w-5 h-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/15 transition-colors"
+            title="Top Operatives"
+          >
+            <Trophy className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Top</span>
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <RefreshCw className={`w-5 h-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
+
+      <Leaderboard
+        open={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        currentUserId={currentUser?.id}
+      />
 
       {/* Event Cards */}
       {loading ? (

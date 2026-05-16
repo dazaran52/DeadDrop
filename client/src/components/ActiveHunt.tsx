@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Map as MapIcon, X, Volume2, VolumeX, Trophy, User, Target, Crosshair, Lock, Shield, Key, Clock, Activity, Plus, Minus, ShieldAlert, CheckCircle2, TrendingUp, Maximize, RefreshCw } from 'lucide-react';
 import MapView from './MapView';
 import Radar from './Radar';
+import LiveRoster from './LiveRoster';
 import { getDistance } from '../utils/geoUtils';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
@@ -1055,6 +1056,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               }}
             />
             
+            {/* LIVE ROSTER */}
+            {activeOperationId && (
+              <LiveRoster eventId={activeOperationId} />
+            )}
+
             <div className="absolute top-20 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
                 <div className="flex items-center gap-6">
@@ -1188,62 +1194,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           </button>
         )}
 
-        {/* Admin Spawn Vault FAB */}
-        {inventory.role === 'admin' && (
-          <button
-            onClick={async () => {
-              if (!activeOperationId) return;
-
-              // Check if vault already exists for this event
-              const { data: existingVault } = await supabase
-                .from('vaults')
-                .select('id')
-                .eq('event_id', activeOperationId)
-                .single();
-
-              if (existingVault) {
-                // Update existing vault
-                await supabase
-                  .from('vaults')
-                  .update({
-                    lat: userLocation.latitude,
-                    lng: userLocation.longitude,
-                    is_active: true
-                  })
-                  .eq('id', existingVault.id);
-              } else {
-                // Insert new vault
-                await supabase
-                  .from('vaults')
-                  .insert({
-                    event_id: activeOperationId,
-                    lat: userLocation.latitude,
-                    lng: userLocation.longitude,
-                    reward_amount: 5000,
-                    is_active: true
-                  });
-              }
-
-              // Refresh vault location
-              const { data: vaultData } = await supabase
-                .from('vaults')
-                .select('lat, lng, reward_amount')
-                .eq('event_id', activeOperationId)
-                .single();
-
-              if (vaultData) {
-                setVaultLocation({
-                  lat: vaultData.lat,
-                  lng: vaultData.lng,
-                  reward_amount: vaultData.reward_amount
-                });
-              }
-            }}
-            className="w-12 h-12 rounded-full bg-accent-orange/30 border border-accent-orange/50 flex items-center justify-center text-accent-orange hover:bg-accent-orange/40 transition-all"
-          >
-            <Trophy className="w-5 h-5" />
-          </button>
-        )}
+        {/* NOTE: Vault spawning is server-authoritative. Client only listens to vault events via socket / polling. */}
 
         {/* Crosshair FAB */}
         <button
@@ -1367,60 +1318,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             <div className="text-[8px] font-mono text-green-400 mb-2">
               STATUS: {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
             </div>
-            <button
-              onClick={async () => {
-                if (!activeOperationId) return;
-
-                // Check if vault already exists for this event
-                const { data: existingVault } = await supabase
-                  .from('vaults')
-                  .select('id')
-                  .eq('event_id', activeOperationId)
-                  .single();
-
-                if (existingVault) {
-                  // Update existing vault
-                  await supabase
-                    .from('vaults')
-                    .update({
-                      lat: userLocation.latitude,
-                      lng: userLocation.longitude,
-                      is_active: true
-                    })
-                    .eq('id', existingVault.id);
-                } else {
-                  // Insert new vault
-                  await supabase
-                    .from('vaults')
-                    .insert({
-                      event_id: activeOperationId,
-                      lat: userLocation.latitude,
-                      lng: userLocation.longitude,
-                      reward_amount: 5000,
-                      is_active: true
-                    });
-                }
-
-                // Refresh vault location
-                const { data: vaultData } = await supabase
-                  .from('vaults')
-                  .select('lat, lng, reward_amount')
-                  .eq('event_id', activeOperationId)
-                  .single();
-
-                if (vaultData) {
-                  setVaultLocation({
-                    lat: vaultData.lat,
-                    lng: vaultData.lng,
-                    reward_amount: vaultData.reward_amount
-                  });
-                }
-              }}
-              disabled={!activeOperationId}
-              className="w-full px-3 py-2 bg-accent-orange/20 border border-accent-orange/40 rounded text-[9px] font-black text-accent-orange uppercase tracking-wider hover:bg-accent-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              SPAWN DEADDROP
-            </button>
+            <div className="text-[9px] font-mono text-white/40 uppercase tracking-wider">
+              vault spawn: server-side only
+            </div>
           </div>
         </div>
       )}
