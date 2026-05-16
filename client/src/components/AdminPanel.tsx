@@ -44,6 +44,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [prizePool, setPrizePool] = useState('');
   const [entryFee, setEntryFee] = useState('');
   const [startTime, setStartTime] = useState('');
+  const [maxParticipants, setMaxParticipants] = useState('20');
+  const [requiredKeys, setRequiredKeys] = useState('4');
   const [submitting, setSubmitting] = useState(false);
 
   // Toast auto-dismiss
@@ -98,7 +100,18 @@ export default function AdminPanel({ role }: AdminPanelProps) {
 
     const prize = Number(prizePool);
     const fee = Number(entryFee);
-    if (!title.trim() || isNaN(prize) || isNaN(fee) || !startTime) {
+    const maxP = Number(maxParticipants);
+    const reqK = Number(requiredKeys);
+    if (
+      !title.trim() ||
+      isNaN(prize) ||
+      isNaN(fee) ||
+      isNaN(maxP) ||
+      isNaN(reqK) ||
+      maxP < 1 ||
+      reqK < 1 ||
+      !startTime
+    ) {
       setToast({ kind: 'err', msg: 'All fields are required and numeric where applicable' });
       setSubmitting(false);
       return;
@@ -110,6 +123,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       entry_fee: fee,
       start_time: new Date(startTime).toISOString(),
       status: 'upcoming',
+      max_participants: maxP,
+      required_keys: reqK,
     });
 
     if (insertError) {
@@ -124,6 +139,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setPrizePool('');
     setEntryFee('');
     setStartTime('');
+    setMaxParticipants('20');
+    setRequiredKeys('4');
     setSubmitting(false);
     fetchEvents();
   };
@@ -246,6 +263,31 @@ export default function AdminPanel({ role }: AdminPanelProps) {
               onChange={(e) => setStartTime(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Max Hunters</label>
+              <input
+                type="number"
+                min={1}
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                placeholder="20"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Keys Required</label>
+              <input
+                type="number"
+                min={1}
+                value={requiredKeys}
+                onChange={(e) => setRequiredKeys(e.target.value)}
+                placeholder="4"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+              />
+            </div>
           </div>
         </div>
 

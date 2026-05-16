@@ -296,66 +296,57 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     setModalError(null);
 
     try {
-      if (!socket) {
-        setModalError('Socket not connected');
+      const eventId = selectedEvent;
+      if (!eventId) {
         setIsJoining(false);
         return;
       }
 
-      // Check for time collisions with existing registered events
-      const now = new Date();
-      const newEvent = events.find(e => e.id === selectedEvent);
-      if (newEvent) {
-        const newEventStart = new Date(newEvent.start_time);
-        const newEventEnd = new Date(newEventStart.getTime() + 2 * 60 * 60 * 1000); // Assume 2 hour duration
-
-        for (const eventId of registeredEvents) {
-          const existingEvent = events.find(e => e.id === eventId);
-          if (existingEvent) {
-            const existingEventStart = new Date(existingEvent.start_time);
-            const existingEventEnd = new Date(existingEventStart.getTime() + 2 * 60 * 60 * 1000); // Assume 2 hour duration
-
-            // Check if events overlap
-            const isOverlapping = newEventStart < existingEventEnd && newEventEnd > existingEventStart;
-            const isLive = now >= existingEventStart && now < existingEventEnd;
-
-            if (isOverlapping || isLive) {
-              setModalError('TIME COLLISION: You are already deployed in an overlapping operation.');
-              setIsJoining(false);
-              return;
-            }
-          }
-        }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setModalError('Not authenticated');
+        setIsJoining(false);
+        return;
       }
 
-      socket.emit('event:join', { eventId: selectedEvent });
-
-      socket.once('event:join_response', (response: { success: boolean; error?: string }) => {
-        if (response.success) {
-          setIsJoining(false);
-          setRegisteredEvents(prev => new Set([...prev, selectedEvent]));
-
-          // Update local participants array immediately
-          setEvents(prev => prev.map(event => {
-            if (event.id === selectedEvent && currentUser) {
-              return {
-                ...event,
-                participants: [...event.participants, { user_id: currentUser.id, username: currentUser.username || 'Unknown' }]
-              };
-            }
-            return event;
-          }));
-
-          setSelectedEvent(null);
-          loadRegisteredEvents();
-        } else {
-          setIsJoining(false);
-          setModalError(response.error || 'Failed to join event');
-        }
+      // Atomic server-side transaction: balance check + insert participant
+      const { error: rpcError } = await supabase.rpc('buy_ticket', {
+        p_user_id: user.id,
+        p_event_id: eventId,
       });
-    } catch (err) {
+
+      if (rpcError) {
+        alert(rpcError.message);
+        setModalError(rpcError.message);
+        setIsJoining(false);
+        return;
+      }
+
+      // Success — optimistic local update so button flips to STANDBY immediately
+      setRegisteredEvents((prev) => new Set([...prev, eventId]));
+      setEvents((prev) =>
+        prev.map((event) =>
+          event.id === eventId && currentUser
+            ? {
+                ...event,
+                participants: [
+                  ...event.participants,
+                  { user_id: currentUser.id, username: currentUser.username || 'Unknown' },
+                ],
+              }
+            : event,
+        ),
+      );
+
+      setSelectedEvent(null);
       setIsJoining(false);
-      setModalError('Failed to join event');
+      loadRegisteredEvents();
+    } catch (err: any) {
+      console.error('buy_ticket failed:', err);
+      const msg = err?.message || 'Failed to buy ticket';
+      alert(msg);
+      setModalError(msg);
+      setIsJoining(false);
     }
   };
 
@@ -571,7 +562,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   <span className={`${getDifficulty(event.required_keys).bg} ${getDifficulty(event.required_keys).color} px-2 py-1 rounded text-xs font-bold tracking-wide`}>
                     {getDifficulty(event.required_keys).label}
                   </span>
-                  <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-mono">
+                  <span className="bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 px-2 py-1 rounded text-xs font-mono">
                     {event.required_keys} KEYS REQ
                   </span>
                 </div>
