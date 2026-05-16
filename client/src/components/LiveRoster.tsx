@@ -69,7 +69,7 @@ export default function LiveRoster({ eventId }: LiveRosterProps) {
   }, [eventId]);
 
   return (
-    <div className="absolute top-20 right-3 z-30 w-56 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+    <div className="absolute top-36 right-3 z-30 w-56 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl">
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-white/5 transition-colors"

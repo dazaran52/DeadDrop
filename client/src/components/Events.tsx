@@ -647,8 +647,20 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   );
                 }
 
-                // STATE 2: upcoming + registered → STANDBY (disabled, yellow)
+                // STATE 2: upcoming + registered → STANDBY, but unlock at T-5 to PREPARE FOR DEPLOYMENT
                 if (!isLive && isRegistered) {
+                  const diffMs = new Date(event.start_time).getTime() - Date.now();
+                  const isPreDeploy = diffMs <= 5 * 60 * 1000;
+                  if (isPreDeploy) {
+                    return (
+                      <button
+                        onClick={() => onNavigate?.('hunt', event.id)}
+                        className="w-full py-4 font-black text-lg rounded-full border bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse"
+                      >
+                        PREPARE FOR DEPLOYMENT
+                      </button>
+                    );
+                  }
                   return (
                     <button
                       disabled

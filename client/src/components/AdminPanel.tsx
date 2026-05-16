@@ -45,6 +45,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [entryFee, setEntryFee] = useState('');
   const [startTime, setStartTime] = useState('');
   const [maxParticipants, setMaxParticipants] = useState('20');
+  const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
   const [submitting, setSubmitting] = useState(false);
 
@@ -101,14 +102,18 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     const prize = Number(prizePool);
     const fee = Number(entryFee);
     const maxP = Number(maxParticipants);
+    const minP = Number(minParticipants);
     const reqK = Number(requiredKeys);
     if (
       !title.trim() ||
       isNaN(prize) ||
       isNaN(fee) ||
       isNaN(maxP) ||
+      isNaN(minP) ||
       isNaN(reqK) ||
       maxP < 1 ||
+      minP < 1 ||
+      minP > maxP ||
       reqK < 1 ||
       !startTime
     ) {
@@ -124,6 +129,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       start_time: new Date(startTime).toISOString(),
       status: 'upcoming',
       max_participants: maxP,
+      min_participants: minP,
       required_keys: reqK,
     });
 
@@ -140,6 +146,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setEntryFee('');
     setStartTime('');
     setMaxParticipants('20');
+    setMinParticipants('3');
     setRequiredKeys('4');
     setSubmitting(false);
     fetchEvents();
@@ -265,7 +272,18 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Min Hunters</label>
+              <input
+                type="number"
+                min={1}
+                value={minParticipants}
+                onChange={(e) => setMinParticipants(e.target.value)}
+                placeholder="3"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+              />
+            </div>
             <div>
               <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Max Hunters</label>
               <input
@@ -278,7 +296,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
               />
             </div>
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Keys Required</label>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Keys Req</label>
               <input
                 type="number"
                 min={1}

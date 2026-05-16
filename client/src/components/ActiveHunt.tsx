@@ -50,6 +50,92 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [showKeySpend, setShowKeySpend] = useState<boolean>(false);
   const [showKeyGain, setShowKeyGain] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [eventStatus, setEventStatus] = useState<string | null>(null);
+  const [eventStartTime, setEventStartTime] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(0);
+  const beepedAtRef = useRef<Set<number>>(new Set());
+  const autoStartFiredRef = useRef<boolean>(false);
+
+  // 4Hz countdown tick (smoother for big timer)
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, []);
+
+  // Mario Kart-style beep at 3,2,1 (high) and 0 (long low)
+  const playCountdownBeep = useCallback((kind: 'tick' | 'go') => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = kind === 'go' ? 220 : 880;
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      const now = ctx.currentTime;
+      const dur = kind === 'go' ? 0.9 : 0.18;
+      gain.gain.exponentialRampToValueAtTime(0.4, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.start(now);
+      osc.stop(now + dur + 0.05);
+    } catch (e) {
+      console.warn('beep failed', e);
+    }
+  }, []);
+
+  // Beep scheduling + auto-start RPC trigger
+  useEffect(() => {
+    if (!activeOperationId || !eventStartTime || eventStatus !== 'upcoming') return;
+
+    const diffMs = new Date(eventStartTime).getTime() - Date.now();
+    const diffSec = Math.ceil(diffMs / 1000);
+
+    // Beep at 3, 2, 1
+    if (diffSec === 3 || diffSec === 2 || diffSec === 1) {
+      if (!beepedAtRef.current.has(diffSec)) {
+        beepedAtRef.current.add(diffSec);
+        playCountdownBeep('tick');
+      }
+    }
+
+    // T-0: long beep + RPC auto-start (fire once)
+    if (diffMs <= 0 && !autoStartFiredRef.current) {
+      autoStartFiredRef.current = true;
+      playCountdownBeep('go');
+
+      (async () => {
+        try {
+          const { data, error } = await supabase.rpc('attempt_auto_start', {
+            p_event_id: activeOperationId,
+          });
+          if (error) {
+            console.error('attempt_auto_start error:', error);
+            alert(`OPERATION ABORTED: ${error.message}`);
+            localStorage.removeItem('activeOperationId');
+            if (onNavigate) onNavigate('events');
+            return;
+          }
+          if (data === 'cancelled') {
+            alert('OPERATION ABORTED: NOT ENOUGH HUNTERS. REFUND ISSUED.');
+            localStorage.removeItem('activeOperationId');
+            if (onNavigate) onNavigate('events');
+            return;
+          }
+          if (data === 'live') {
+            setEventStatus('live');
+          }
+        } catch (e: any) {
+          console.error('auto-start exception:', e);
+          alert(`OPERATION ABORTED: ${e?.message || 'unknown error'}`);
+          localStorage.removeItem('activeOperationId');
+          if (onNavigate) onNavigate('events');
+        }
+      })();
+    }
+    // re-run on tick
+  }, [activeOperationId, eventStartTime, eventStatus, playCountdownBeep, onNavigate, nowTick]);
 
   // Fetch operation title and required_keys when activeOperationId changes
   useEffect(() => {
@@ -58,7 +144,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       const fetchOperationInfo = async () => {
         const { data, error } = await supabase
           .from('events')
-          .select('title, required_keys, status')
+          .select('title, required_keys, status, start_time')
           .eq('id', activeOperationId)
           .single();
 
@@ -69,17 +155,22 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           return;
         }
 
-        // Hard router guard: upcoming events deny map access
+        // Relaxed router guard: allow upcoming only within T-5 min window
         if (data.status === 'upcoming') {
-          console.warn('Access denied: operation not yet started', activeOperationId);
-          localStorage.setItem('lobbyToast', 'OPERATION NOT YET STARTED');
-          localStorage.removeItem('activeOperationId');
-          if (onNavigate) onNavigate('events');
-          return;
+          const diffMs = new Date(data.start_time).getTime() - Date.now();
+          if (diffMs > 5 * 60 * 1000) {
+            console.warn('Access denied: operation not yet started', activeOperationId);
+            localStorage.setItem('lobbyToast', 'OPERATION NOT YET STARTED');
+            localStorage.removeItem('activeOperationId');
+            if (onNavigate) onNavigate('events');
+            return;
+          }
         }
 
         setOperationTitle(data.title);
         setRequiredKeys(data.required_keys || 0);
+        setEventStatus(data.status);
+        setEventStartTime(data.start_time);
       };
 
       fetchOperationInfo();
@@ -210,7 +301,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           filter: `id=eq.${activeOperationId}`
         },
         (payload) => {
-          if (payload.new.status === 'completed' && matchResult !== 'victory') {
+          const newStatus = payload.new.status;
+          if (newStatus) {
+            setEventStatus(newStatus);
+          }
+          if (newStatus === 'completed' && matchResult !== 'victory') {
             setMatchResult('defeat');
           }
         }
@@ -849,6 +944,60 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           {operationTitle || 'GLOBAL MAP'}
         </span>
       </div>
+
+      {/* Pre-deployment Mario Kart countdown overlay */}
+      {eventStatus === 'upcoming' && eventStartTime && (() => {
+        const diffMs = new Date(eventStartTime).getTime() - Date.now();
+        const totalSec = Math.max(0, Math.ceil(diffMs / 1000));
+        const isFinalCountdown = totalSec <= 3 && totalSec >= 1;
+        const isGo = diffMs <= 0;
+
+        let bigText: string;
+        if (isGo) {
+          bigText = 'DEPLOYED!';
+        } else if (isFinalCountdown) {
+          bigText = String(totalSec);
+        } else {
+          const h = Math.floor(totalSec / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
+          const pad = (n: number) => String(n).padStart(2, '0');
+          bigText = h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+        }
+
+        return (
+          <div className="absolute inset-0 z-[9998] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
+            <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
+              Awaiting Deployment Signal
+            </div>
+            <div
+              key={bigText}
+              className={`select-none font-black tracking-tighter ${
+                isGo
+                  ? 'text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse'
+                  : isFinalCountdown
+                  ? 'text-red-500 text-[12rem] sm:text-[18rem] leading-none drop-shadow-[0_0_50px_rgba(239,68,68,0.7)]'
+                  : 'text-white text-6xl sm:text-8xl tabular-nums'
+              }`}
+              style={{
+                animation: isFinalCountdown ? 'countdownPop 1s ease-out' : undefined,
+              }}
+            >
+              {bigText}
+            </div>
+            <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
+              {isGo ? 'Connecting to grid…' : isFinalCountdown ? 'Stand by' : 'T-Minus'}
+            </div>
+            <style>{`
+              @keyframes countdownPop {
+                0% { transform: scale(0.5); opacity: 0; }
+                30% { transform: scale(1.15); opacity: 1; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
+          </div>
+        );
+      })()}
 
       {/* Observer Mode Blur Overlay */}
       {activeOperationId === null && (
