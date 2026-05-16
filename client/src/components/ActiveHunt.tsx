@@ -54,18 +54,32 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   // Fetch operation title and required_keys when activeOperationId changes
   useEffect(() => {
     if (activeOperationId) {
-      // Fetch operation title and required_keys
+      // Fetch operation title and required_keys + status gate
       const fetchOperationInfo = async () => {
         const { data, error } = await supabase
           .from('events')
-          .select('title, required_keys')
+          .select('title, required_keys, status')
           .eq('id', activeOperationId)
           .single();
 
-        if (data) {
-          setOperationTitle(data.title);
-          setRequiredKeys(data.required_keys || 0);
+        if (error || !data) {
+          console.warn('Event lookup failed, redirecting to lobby:', error);
+          localStorage.removeItem('activeOperationId');
+          if (onNavigate) onNavigate('events');
+          return;
         }
+
+        // Hard router guard: upcoming events deny map access
+        if (data.status === 'upcoming') {
+          console.warn('Access denied: operation not yet started', activeOperationId);
+          localStorage.setItem('lobbyToast', 'OPERATION NOT YET STARTED');
+          localStorage.removeItem('activeOperationId');
+          if (onNavigate) onNavigate('events');
+          return;
+        }
+
+        setOperationTitle(data.title);
+        setRequiredKeys(data.required_keys || 0);
       };
 
       fetchOperationInfo();
@@ -109,6 +123,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           // No event_participants record => no spectators allowed.
           // Hard block: clear active operation and redirect to lobby.
           console.warn('Access denied: not a participant of', activeOperationId);
+          localStorage.setItem('lobbyToast', 'TICKET REQUIRED · BUY ENTRY FIRST');
           localStorage.removeItem('activeOperationId');
           if (onNavigate) onNavigate('events');
           return;

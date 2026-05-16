@@ -160,6 +160,14 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     loadEvents();
     loadRegisteredEvents();
     loadCurrentUser();
+
+    // Surface any toast queued by other screens (e.g. ActiveHunt access denial)
+    const queued = localStorage.getItem('lobbyToast');
+    if (queued) {
+      setToastMessage(queued);
+      localStorage.removeItem('lobbyToast');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   }, []);
 
   const loadCurrentUser = async () => {
@@ -617,47 +625,71 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                 </button>
               </div>
 
-              {/* Enter Button - status-gated, no local-clock unlocking */}
-              {registeredEvents.has(event.id) ? (
-                <div className="space-y-2">
-                  {(() => {
-                    const isLive = event.status === 'live';
-                    const isActiveOp = activeOperationId === event.id;
-                    const enabled = isLive || isActiveOp;
-                    const label = isActiveOp ? 'RESUME' : isLive ? 'START EVENT' : 'WAITING FOR DEPLOYMENT';
-                    return (
-                      <button
-                        onClick={() => handleDeploy(event.id, event.start_time)}
-                        className={`w-full py-4 font-black text-lg rounded-full border transition-all ${
-                          enabled
-                            ? 'bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse'
-                            : 'bg-gray-700 text-white/60 cursor-not-allowed border-white/10'
-                        }`}
-                        disabled={!enabled}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })()}
-                  {event.status !== 'live' && activeOperationId !== event.id && (
-                    <p className="text-xs text-white/40 text-center font-medium">Awaiting backend deployment signal</p>
-                  )}
-                </div>
-              ) : event.status === 'upcoming' ? (
-                <button
-                  disabled
-                  className="w-full py-4 bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 font-black text-lg rounded-full cursor-not-allowed tracking-wider"
-                >
-                  {getTimeUntilEvent(event.start_time).text}
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleEnterEvent(event.id)}
-                  className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
-                >
-                  ENTER EVENT
-                </button>
-              )}
+              {/* Button state machine: separates ENTRY (payment) from ACCESS (deploy) */}
+              {(() => {
+                const isRegistered = registeredEvents.has(event.id);
+                const isLive = event.status === 'live';
+                const isActiveOp = activeOperationId === event.id;
+                const timerText = getTimeUntilEvent(event.start_time).text;
+
+                // Active operation in progress — RESUME wins
+                if (isActiveOp) {
+                  return (
+                    <button
+                      onClick={() => onNavigate?.('hunt', event.id)}
+                      className="w-full py-4 font-black text-lg rounded-full border bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse"
+                    >
+                      RESUME
+                    </button>
+                  );
+                }
+
+                // STATE 1: upcoming + !registered → BUY TICKET (active)
+                if (!isLive && !isRegistered) {
+                  return (
+                    <button
+                      onClick={() => handleEnterEvent(event.id)}
+                      className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
+                    >
+                      BUY TICKET: {event.entry_fee.toLocaleString()} CZK
+                    </button>
+                  );
+                }
+
+                // STATE 2: upcoming + registered → STANDBY (disabled, yellow)
+                if (!isLive && isRegistered) {
+                  return (
+                    <button
+                      disabled
+                      className="w-full py-4 bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 font-black text-lg rounded-full cursor-not-allowed tracking-wider"
+                    >
+                      STANDBY · {timerText.replace('STARTS IN ', '').replace('WAITING FOR DEPLOYMENT', 'AWAITING SIGNAL')}
+                    </button>
+                  );
+                }
+
+                // STATE 3: live + registered → DEPLOY TO MAP (active, green)
+                if (isLive && isRegistered) {
+                  return (
+                    <button
+                      onClick={() => onNavigate?.('hunt', event.id)}
+                      className="w-full py-4 font-black text-lg rounded-full border bg-green-500 text-white hover:brightness-110 active:scale-[0.98] shadow-md shadow-green-500/50 border-white/10 animate-pulse"
+                    >
+                      DEPLOY TO MAP
+                    </button>
+                  );
+                }
+
+                // STATE 4: live + !registered → LATE ENTRY (active, orange)
+                return (
+                  <button
+                    onClick={() => handleEnterEvent(event.id)}
+                    className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
+                  >
+                    LATE ENTRY: {event.entry_fee.toLocaleString()} CZK
+                  </button>
+                );
+              })()}
             </motion.div>
           ))}
         </div>
