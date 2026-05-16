@@ -51,6 +51,13 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState(0);
+  const [, setNowTick] = useState(0);
+
+  // 1s tick for live countdown
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const getDifficulty = (requiredKeys?: number): { label: string; color: string; bg: string } => {
     if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400', bg: 'bg-gray-500/20' };
@@ -173,7 +180,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('*')
-        .in('status', ['live'])
+        .in('status', ['live', 'upcoming'])
         .order('start_time', { ascending: true });
 
       console.log('FETCH_EVENTS_RESULT:', eventsData);
@@ -364,17 +371,12 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       return { text: '🔴 OPERATION LIVE', isLive: true };
     }
 
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 60) {
-      return { text: `STARTS IN ${diffMins} MINS`, isLive: false };
-    } else if (diffMins < 1440) {
-      const hours = Math.floor(diffMins / 60);
-      return { text: `STARTS IN ${hours} HOURS`, isLive: false };
-    } else {
-      const days = Math.floor(diffMins / 1440);
-      return { text: `STARTS IN ${days} DAYS`, isLive: false };
-    }
+    const totalSec = Math.floor(diffMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return { text: `STARTS IN ${pad(h)}:${pad(m)}:${pad(s)}`, isLive: false };
   };
 
   return (
@@ -497,16 +499,28 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               {/* Badge */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className={`w-4 h-4 ${getTimeUntilEvent(event.start_time).isLive ? 'text-red-500' : 'text-red-500'}`} />
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${getTimeUntilEvent(event.start_time).isLive ? 'text-red-500' : 'text-red-500'}`}>
-                    {getTimeUntilEvent(event.start_time).text}
+                  <Clock className={`w-4 h-4 ${event.status === 'upcoming' ? 'text-yellow-400' : 'text-red-500'}`} />
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${event.status === 'upcoming' ? 'text-yellow-400' : 'text-red-500'}`}>
+                    {event.status === 'upcoming' ? getTimeUntilEvent(event.start_time).text : '🔴 OPERATION LIVE'}
                   </span>
                 </div>
-                {registeredEvents.has(event.id) && (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
-                    ENTERED ✓
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {event.status === 'upcoming' && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-400 bg-yellow-500/10 border border-yellow-500/40 px-2 py-0.5 rounded">
+                      SCHEDULED
+                    </span>
+                  )}
+                  {event.status === 'live' && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-red-400 bg-red-500/10 border border-red-500/40 px-2 py-0.5 rounded animate-pulse">
+                      LIVE
+                    </span>
+                  )}
+                  {registeredEvents.has(event.id) && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-green-500">
+                      ENTERED ✓
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Difficulty Row */}
@@ -589,6 +603,13 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     <p className="text-xs text-white/40 text-center font-medium">Deployment opens at T-minus 5m</p>
                   )}
                 </div>
+              ) : event.status === 'upcoming' ? (
+                <button
+                  disabled
+                  className="w-full py-4 bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 font-black text-lg rounded-full cursor-not-allowed tracking-wider"
+                >
+                  {getTimeUntilEvent(event.start_time).text}
+                </button>
               ) : (
                 <button
                   onClick={() => handleEnterEvent(event.id)}

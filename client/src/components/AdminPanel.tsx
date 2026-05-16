@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
+  Zap,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -151,6 +152,21 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       return;
     }
     setToast({ kind: 'ok', msg: 'Event deleted' });
+    fetchEvents();
+  };
+
+  const handleForceStart = async (id: string) => {
+    if (!confirm('FORCE START this event now? Status will be set to LIVE.')) return;
+    const { error: updErr } = await supabase
+      .from('events')
+      .update({ status: 'live' })
+      .eq('id', id);
+
+    if (updErr) {
+      setToast({ kind: 'err', msg: updErr.message });
+      return;
+    }
+    setToast({ kind: 'ok', msg: 'Event forced live' });
     fetchEvents();
   };
 
@@ -304,13 +320,24 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => handleEndEvent(ev.id)}
-                    className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-yellow-500/40 hover:text-yellow-300 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <StopCircle className="w-3 h-3" />
-                    End Event
-                  </button>
+                  {ev.status === 'upcoming' && (
+                    <button
+                      onClick={() => handleForceStart(ev.id)}
+                      className="flex-1 py-2 bg-red-500/10 border border-red-500/40 text-red-300 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:bg-red-500/20 hover:border-red-500/60 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Zap className="w-3 h-3" />
+                      Force Start
+                    </button>
+                  )}
+                  {ev.status === 'live' && (
+                    <button
+                      onClick={() => handleEndEvent(ev.id)}
+                      className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-yellow-500/40 hover:text-yellow-300 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <StopCircle className="w-3 h-3" />
+                      End Event
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(ev.id)}
                     className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-red-500/40 hover:text-red-300 transition-all flex items-center justify-center gap-1.5"
