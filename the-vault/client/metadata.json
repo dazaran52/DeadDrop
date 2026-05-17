@@ -1,6 +1,0 @@
-{
-  "name": "The Vault",
-  "description": "A mobile-first cyberpunk treasure hunt game. Track your real-time position to find and unlock the hidden digital vault.",
-  "requestFramePermissions": ["geolocation"],
-  "majorCapabilities": ["geolocation"]
-}
