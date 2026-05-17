@@ -954,7 +954,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
         let bigText: string;
         if (isGo) {
-          bigText = 'DEPLOYED!';
+          bigText = 'START!';
+          // Play airhorn sound when timer reaches 0
+          try {
+            new Audio('/sounds/airhorn.mp3').play().catch(err => console.log('Airhorn play failed:', err));
+          } catch (e) {
+            console.log('Audio creation failed:', e);
+          }
         } else if (isFinalCountdown) {
           bigText = String(totalSec);
         } else {
@@ -966,7 +972,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         }
 
         return (
-          <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
+          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
             <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
               Awaiting Deployment Signal
             </div>
@@ -1114,14 +1120,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               </div>
             )}
             <p className="text-xs font-mono text-text-muted uppercase tracking-widest mb-12">Asset decrypted and archived</p>
-            
+
             <div className="grid grid-cols-1 gap-4 w-full max-w-xs mb-12">
               <div className="premium-panel p-6 flex flex-col items-center border-accent-orange/30">
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className="w-4 h-4 text-accent-orange" />
                   <span className="text-[10px] uppercase font-black text-text-muted">Deployment Reward</span>
                 </div>
-                <span className="text-3xl font-black text-green-400 animate-pulse shadow-[0_0_20px_#4ade80]">{vaultLocation?.reward_amount || 0} CZK</span>
+                <span className="text-3xl font-black text-green-400 animate-pulse shadow-[0_0_20px_#4ade80]">{vaultLocation?.reward_amount || 0} DOX</span>
               </div>
             </div>
 
@@ -1418,7 +1424,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 <Trophy className="w-12 h-12 text-green-400" />
               </div>
               <h1 className="text-5xl font-black text-white tracking-tighter uppercase">VAULT SECURED</h1>
-              <p className="text-3xl font-bold text-green-300">+{vaultLocation?.reward_amount || 0} Kč</p>
+              <p className="text-3xl font-bold text-green-300">+{vaultLocation?.reward_amount || 0} DOX</p>
               <p className="text-sm text-white/60 font-medium">Reward credited to your account</p>
               <button
                 onClick={handleReturnToHq}

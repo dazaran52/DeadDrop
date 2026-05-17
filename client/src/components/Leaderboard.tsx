@@ -143,7 +143,7 @@ export default function Leaderboard({ open, onClose, currentUserId }: Leaderboar
                       <div className={`text-sm font-light tabular-nums ${rank === 1 ? 'text-yellow-200 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]' : rank === 2 ? 'text-gray-100' : 'text-white'}`}>
                         {op.balance.toLocaleString()}
                       </div>
-                      <div className="text-[9px] text-white/40 tracking-wider uppercase">CZK</div>
+                      <div className="text-[9px] text-white/40 tracking-wider uppercase">DOX</div>
                     </div>
                   </li>
                 );

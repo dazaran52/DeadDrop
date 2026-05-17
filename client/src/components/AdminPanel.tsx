@@ -293,7 +293,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Prize Pool (CZK)</label>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">REWARD POOL (DOX)</label>
               <input
                 type="number"
                 value={prizePool}
@@ -303,7 +303,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
               />
             </div>
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Entry Fee (CZK)</label>
+              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Entry Fee (DOX)</label>
               <input
                 type="number"
                 value={entryFee}
@@ -456,11 +456,11 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 <div className="flex items-center gap-4 text-[11px]">
                   <div className="flex items-center gap-1.5 text-white/60">
                     <Trophy className="w-3 h-3 text-green-400" />
-                    <span>{ev.prize_pool.toLocaleString()} CZK</span>
+                    <span>{ev.prize_pool.toLocaleString()} DOX</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-white/60">
                     <Coins className="w-3 h-3 text-yellow-400" />
-                    <span>{ev.entry_fee.toLocaleString()} CZK</span>
+                    <span>{ev.entry_fee.toLocaleString()} DOX</span>
                   </div>
                 </div>
 

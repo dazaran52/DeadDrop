@@ -237,7 +237,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
         <div className="text-[10px] text-white/40 tracking-[0.25em] uppercase mb-3">Equity</div>
         <div className="flex items-baseline gap-2">
           <span className="text-4xl font-light text-white tracking-tight drop-shadow-[0_0_8px_rgba(74,222,128,0.15)]">{balance.toLocaleString()}</span>
-          <span className="text-sm text-white/40 tracking-wider">CZK</span>
+          <span className="text-sm text-white/40 tracking-wider">DOX</span>
         </div>
       </div>
 
@@ -268,7 +268,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
             <span className="text-3xl font-light text-white tracking-tight">
               {loading ? <Loader2 className="w-5 h-5 animate-spin text-white/40" /> : totalProfit.toLocaleString()}
             </span>
-            {!loading && <span className="text-xs text-white/40">CZK</span>}
+            {!loading && <span className="text-xs text-white/40">DOX</span>}
           </div>
         </div>
       </div>

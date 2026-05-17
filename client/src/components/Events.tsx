@@ -426,7 +426,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
           <Wallet className="w-5 h-5 text-green-500" />
           <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">YOUR EQUITY</span>
-          <span className="text-lg font-black text-green-500 tracking-tighter whitespace-nowrap">{balance.toLocaleString()} Kč</span>
+          <span className="text-lg font-black text-green-500 tracking-tighter whitespace-nowrap">{balance.toLocaleString()} DOX</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
           <div className="relative">
@@ -563,12 +563,10 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     {getDifficulty(event.required_keys).label}
                   </span>
                   <span className="bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 px-2 py-1 rounded text-xs font-mono">
-                    {event.required_keys} KEYS REQ
+                    TARGET: {event.required_keys} KEYS
                   </span>
                 </div>
               )}
-
-              {/* Title */}
               <h2 className="text-2xl font-black text-white tracking-tight leading-none">
                 {event.title}
               </h2>
@@ -579,11 +577,11 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-green-500" />
                     <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">
-                      PRIZE POOL
+                      REWARD POOL
                     </span>
                   </div>
                   <span className="text-2xl font-black text-green-500 tracking-tighter">
-                    {event.prize_pool.toLocaleString()} Kč
+                    {event.prize_pool.toLocaleString()} DOX
                   </span>
                 </div>
 
@@ -595,7 +593,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     </span>
                   </div>
                   <span className="text-2xl font-black text-white tracking-tighter">
-                    {event.entry_fee.toLocaleString()} Kč
+                    {event.entry_fee.toLocaleString()} DOX
                   </span>
                 </div>
               </div>
@@ -605,7 +603,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                 <div className="flex items-center gap-2">
                   <span className="text-lg">👥</span>
                   <span className="text-sm font-bold text-white">
-                    {event.participants.length} / {event.max_participants} HUNTERS
+                    {event.participants.length} / {event.max_participants} HUNTERS | MIN: {event.min_participants}
                   </span>
                 </div>
                 <button
@@ -642,7 +640,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                       onClick={() => handleEnterEvent(event.id)}
                       className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
                     >
-                      BUY TICKET: {event.entry_fee.toLocaleString()} CZK
+                      BUY TICKET: {event.entry_fee.toLocaleString()} DOX
                     </button>
                   );
                 }
@@ -689,7 +687,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     onClick={() => handleEnterEvent(event.id)}
                     className="w-full py-4 bg-accent-orange text-white font-black text-lg rounded-full hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-accent-orange/10 border border-white/10"
                   >
-                    LATE ENTRY: {event.entry_fee.toLocaleString()} CZK
+                    LATE ENTRY: {event.entry_fee.toLocaleString()} DOX
                   </button>
                 );
               })()}
@@ -729,10 +727,10 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                     </h2>
                     <p className="text-sm text-text-muted mt-2">
                       {insufficientFunds
-                        ? `You are short ${shortage.toLocaleString()} CZK to enter this operation. Top up your balance.`
+                        ? `You are short ${shortage.toLocaleString()} DOX to enter this operation. Top up your balance.`
                         : modalError
                           ? modalError
-                          : `Deduct ${event.entry_fee.toLocaleString()} CZK from your balance?`}
+                          : `Deduct ${event.entry_fee.toLocaleString()} DOX from your balance?`}
                     </p>
                   </div>
                   <button
