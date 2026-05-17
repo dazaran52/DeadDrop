@@ -89,20 +89,20 @@ io.on('connection', (socket) => {
       // Fetch player data from database
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('balance, keys, role')
+        .select('balance, role')
         .eq('id', playerId)
         .single();
 
       if (error) {
         console.error('[db] Error fetching profile:', error);
-        socket.emit('inventory:init', { keys: 3, balance: 0, role: 'user' });
+        socket.emit('inventory:init', { balance: 0, role: 'user' });
         return;
       }
 
       socket.emit('inventory:init', profile);
     } catch (err) {
       console.error('[db] Exception in player:identify:', err);
-      socket.emit('inventory:init', { keys: 3, balance: 0, role: 'user' });
+      socket.emit('inventory:init', { balance: 0, role: 'user' });
     }
   });
 
@@ -152,18 +152,13 @@ io.on('connection', (socket) => {
       // Fetch player data from database
       const { data: profile, error: fetchError } = await supabase
         .from('profiles')
-        .select('keys, balance, role')
+        .select('balance, role')
         .eq('id', playerId)
         .single();
 
       if (fetchError) {
         console.error('[db] Error fetching profile for vault claim:', fetchError);
         socket.emit('vault:error', { message: 'Ошибка базы данных' });
-        return;
-      }
-
-      if (profile.keys <= 0) {
-        socket.emit('error:no_keys', { message: 'Нет ключей! Нужен минимум 1 ключ.' });
         return;
       }
 
@@ -211,7 +206,6 @@ io.on('connection', (socket) => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          keys: profile.keys - 1,
           balance: profile.balance + claimedVault.reward
         })
         .eq('id', playerId);
@@ -238,9 +232,9 @@ io.on('connection', (socket) => {
 
       // Send success response
       socket.emit('vault:claimed', claimedVault);
-      socket.emit('inventory:update', { keys: profile.keys - 1, balance: profile.balance + claimedVault.reward, role: profile.role });
+      socket.emit('inventory:update', { balance: profile.balance + claimedVault.reward, role: profile.role });
       io.emit('vault:update', { id: claimedVault.id, is_active: false });
-      console.log(`[vault] Игрок ${playerId} открыл сейф ${claimedVault.id} с ${claimedVault.reward} CZK (расстояние: ${distance.toFixed(1)}м)`);
+      console.log(`[vault] Игрок ${playerId} открыл сейф ${claimedVault.id} с ${claimedVault.reward} DOX (расстояние: ${distance.toFixed(1)}м)`);
     } catch (err) {
       console.error('[db] Exception in vault:claim:', err);
       socket.emit('vault:error', { message: 'Внутренняя ошибка сервера' });
@@ -342,7 +336,7 @@ io.on('connection', (socket) => {
       // Server-side validation: Fetch user balance directly from database
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, balance, keys, role')
+        .select('id, balance, role')
         .eq('id', playerId)
         .single();
 
@@ -416,11 +410,10 @@ io.on('connection', (socket) => {
       // Immediately send updated profile state via player:sync to update UI
       socket.emit('player:sync', {
         balance: profile.balance - event.entry_fee,
-        keys: profile.keys,
         role: profile.role
       });
 
-      console.log(`[event] Player ${playerId} joined event ${eventId} (fee: ${event.entry_fee} CZK)`);
+      console.log(`[event] Player ${playerId} joined event ${eventId} (fee: ${event.entry_fee} DOX)`);
     } catch (err) {
       console.error('[db] Exception in event:join:', err);
       socket.emit('event:join_response', { success: false, error: 'Internal server error' });
