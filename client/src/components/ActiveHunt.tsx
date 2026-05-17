@@ -53,6 +53,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [eventStatus, setEventStatus] = useState<string | null>(null);
   const [eventStartTime, setEventStartTime] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(0);
+  const [showStartOverlay, setShowStartOverlay] = useState(false);
+  const [startOverlayOpacity, setStartOverlayOpacity] = useState(1);
   const beepedAtRef = useRef<Set<number>>(new Set());
   const autoStartFiredRef = useRef<boolean>(false);
 
@@ -308,6 +310,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           if (newStatus === 'completed' && matchResult !== 'victory') {
             setMatchResult('defeat');
           }
+          // Kick player out if event is ended or cancelled
+          if (newStatus === 'ended' || newStatus === 'cancelled') {
+            localStorage.setItem('lobbyToast', 'OPERATION TERMINATED');
+            localStorage.removeItem('activeOperationId');
+            if (onNavigate) onNavigate('events');
+          }
         }
       )
       .subscribe();
@@ -315,7 +323,30 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeOperationId, matchResult]);
+  }, [activeOperationId, matchResult, onNavigate]);
+
+  // Polling fallback for event status (every 10 seconds)
+  useEffect(() => {
+    if (!activeOperationId) return;
+
+    const pollInterval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('status')
+        .eq('id', activeOperationId)
+        .single();
+
+      if (error || !data) return;
+
+      if (data.status === 'ended' || data.status === 'cancelled') {
+        localStorage.setItem('lobbyToast', 'OPERATION TERMINATED');
+        localStorage.removeItem('activeOperationId');
+        if (onNavigate) onNavigate('events');
+      }
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeOperationId, onNavigate]);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -952,57 +983,94 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         const isFinalCountdown = totalSec <= 3 && totalSec >= 1;
         const isGo = diffMs <= 0;
 
-        let bigText: string;
-        if (isGo) {
-          bigText = 'START!';
-          // Play airhorn sound when timer reaches 0
-          try {
-            new Audio('/sounds/airhorn.mp3').play().catch(err => console.log('Airhorn play failed:', err));
-          } catch (e) {
-            console.log('Audio creation failed:', e);
+        // Trigger START! overlay with fade out animation
+        useEffect(() => {
+          if (isGo && !showStartOverlay) {
+            setShowStartOverlay(true);
+            setStartOverlayOpacity(1);
+            // Play airhorn sound when timer reaches 0
+            try {
+              new Audio('/sounds/airhorn.mp3').play().catch(err => console.log('Airhorn play failed:', err));
+            } catch (e) {
+              console.log('Audio creation failed:', e);
+            }
+            // Start fade out after 1.5 seconds, complete in 0.5 seconds
+            setTimeout(() => {
+              setStartOverlayOpacity(0);
+            }, 1500);
+            // Hide overlay completely after fade animation
+            setTimeout(() => {
+              setShowStartOverlay(false);
+            }, 2000);
           }
-        } else if (isFinalCountdown) {
-          bigText = String(totalSec);
-        } else {
-          const h = Math.floor(totalSec / 3600);
-          const m = Math.floor((totalSec % 3600) / 60);
-          const s = totalSec % 60;
-          const pad = (n: number) => String(n).padStart(2, '0');
-          bigText = h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+        }, [isGo]);
+
+        // If START! overlay is active, render it with fade animation
+        if (showStartOverlay) {
+          return (
+            <div 
+              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none transition-opacity duration-500"
+              style={{ opacity: startOverlayOpacity }}
+            >
+              <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
+                Awaiting Deployment Signal
+              </div>
+              <div className="select-none font-black tracking-tighter text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse">
+                START!
+              </div>
+              <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
+                Connecting to grid…
+              </div>
+            </div>
+          );
         }
 
-        return (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
-            <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
-              Awaiting Deployment Signal
+        // Show countdown for upcoming events (before GO)
+        if (!isGo) {
+          let bigText: string;
+          if (isFinalCountdown) {
+            bigText = String(totalSec);
+          } else {
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
+            const pad = (n: number) => String(n).padStart(2, '0');
+            bigText = h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+          }
+
+          return (
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
+              <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
+                Awaiting Deployment Signal
+              </div>
+              <div
+                key={bigText}
+                className={`select-none font-black tracking-tighter ${
+                  isFinalCountdown
+                    ? 'text-red-500 text-[12rem] sm:text-[18rem] leading-none drop-shadow-[0_0_50px_rgba(239,68,68,0.7)]'
+                    : 'text-white text-6xl sm:text-8xl tabular-nums'
+                }`}
+                style={{
+                  animation: isFinalCountdown ? 'countdownPop 1s ease-out' : undefined,
+                }}
+              >
+                {bigText}
+              </div>
+              <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
+                {isFinalCountdown ? 'Stand by' : 'T-Minus'}
+              </div>
+              <style>{`
+                @keyframes countdownPop {
+                  0% { transform: scale(0.5); opacity: 0; }
+                  30% { transform: scale(1.15); opacity: 1; }
+                  100% { transform: scale(1); opacity: 1; }
+                }
+              `}</style>
             </div>
-            <div
-              key={bigText}
-              className={`select-none font-black tracking-tighter ${
-                isGo
-                  ? 'text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse'
-                  : isFinalCountdown
-                  ? 'text-red-500 text-[12rem] sm:text-[18rem] leading-none drop-shadow-[0_0_50px_rgba(239,68,68,0.7)]'
-                  : 'text-white text-6xl sm:text-8xl tabular-nums'
-              }`}
-              style={{
-                animation: isFinalCountdown ? 'countdownPop 1s ease-out' : undefined,
-              }}
-            >
-              {bigText}
-            </div>
-            <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-              {isGo ? 'Connecting to grid…' : isFinalCountdown ? 'Stand by' : 'T-Minus'}
-            </div>
-            <style>{`
-              @keyframes countdownPop {
-                0% { transform: scale(0.5); opacity: 0; }
-                30% { transform: scale(1.15); opacity: 1; }
-                100% { transform: scale(1); opacity: 1; }
-              }
-            `}</style>
-          </div>
-        );
+          );
+        }
+
+        return null;
       })()}
 
       {/* Observer Mode Blur Overlay */}
@@ -1298,8 +1366,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </button>
       )}
 
-      {/* Zoom Controls - Left Bottom */}
-      {matchResult === 'playing' && mapInstance && activeOperationId && (
+      {/* Zoom Controls - Left Bottom - Only show when countdown is finished */}
+      {matchResult === 'playing' && mapInstance && activeOperationId && eventStatus !== 'upcoming' && (
         <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
           {/* Zoom In FAB */}
           <button
@@ -1327,8 +1395,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </div>
       )}
 
-      {/* Right Side FABs - Bottom Right */}
-      {matchResult === 'playing' && activeOperationId && (
+      {/* Right Side FABs - Bottom Right - Only show when countdown is finished */}
+      {matchResult === 'playing' && activeOperationId && eventStatus !== 'upcoming' && (
         <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
         {/* Map Refresh Button */}
         {mapInstance && (

@@ -59,6 +59,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
   const [epicenter, setEpicenter] = useState<{lat: number, lng: number} | null>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [tempEpicenter, setTempEpicenter] = useState<{lat: number, lng: number} | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -87,7 +89,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     iconAnchor: [12, 12],
   });
 
-  // LocationPicker component - handles map click events
+  // LocationPicker component - handles map click events (for form mini-map)
   const LocationPicker = () => {
     useMapEvents({
       click(e) {
@@ -95,6 +97,30 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       },
     });
     return null;
+  };
+
+  // LocationPicker for modal (uses temp state)
+  const ModalLocationPicker = () => {
+    useMapEvents({
+      click(e) {
+        setTempEpicenter({ lat: e.latlng.lat, lng: e.latlng.lng });
+      },
+    });
+    return null;
+  };
+
+  // Open map modal and initialize temp epicenter
+  const openMapModal = () => {
+    setTempEpicenter(epicenter);
+    setShowMapModal(true);
+  };
+
+  // Confirm coordinates from modal
+  const confirmCoordinates = () => {
+    if (tempEpicenter) {
+      setEpicenter(tempEpicenter);
+    }
+    setShowMapModal(false);
   };
 
   // Toast auto-dismiss
@@ -417,8 +443,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             </div>
           </div>
 
-          {/* Mini Map - Epicenter Selection */}
-          <div className="space-y-2">
+          {/* Epicenter Selection - Button to open fullscreen map */}
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-red-400" />
               <label className="text-[10px] text-red-400/80 tracking-wider uppercase font-bold">
@@ -430,29 +456,36 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 </span>
               )}
             </div>
-            <div className="h-64 rounded-xl overflow-hidden border border-white/10 relative" style={{ isolation: 'isolate' }}>
-              <MapContainer
-                center={epicenter !== null ? [epicenter.lat, epicenter.lng] : DEFAULT_CENTER}
-                zoom={13}
-                scrollWheelZoom={false}
-                style={{ height: '100%', width: '100%' }}
-                className="rounded-xl"
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                />
-                <LocationPicker />
-                {epicenter !== null && (
+
+            <button
+              type="button"
+              onClick={openMapModal}
+              className="w-full py-4 bg-white/5 border border-white/10 rounded-xl text-white/70 text-sm font-medium hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+              <MapPin className="w-4 h-4" />
+              {epicenter !== null ? 'CHANGE DROP ZONE' : 'OPEN MAP TO SELECT DROP ZONE'}
+            </button>
+
+            {/* Mini preview map (read-only) */}
+            {epicenter !== null && (
+              <div className="h-32 rounded-xl overflow-hidden border border-white/10 opacity-60">
+                <MapContainer
+                  center={[epicenter.lat, epicenter.lng]}
+                  zoom={13}
+                  zoomControl={false}
+                  scrollWheelZoom={false}
+                  dragging={false}
+                  style={{ height: '100%', width: '100%' }}
+                  className="rounded-xl"
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  />
                   <Marker position={[epicenter.lat, epicenter.lng]} icon={epicenterIcon} />
-                )}
-              </MapContainer>
-              {epicenter === null && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-red-500/30 text-red-300 text-[10px] px-3 py-1.5 rounded-lg">
-                  Click on map to set epicenter
-                </div>
-              )}
-            </div>
+                </MapContainer>
+              </div>
+            )}
           </div>
         </div>
 
@@ -604,6 +637,78 @@ export default function AdminPanel({ role }: AdminPanelProps) {
           </div>
         )}
       </div>
+
+      {/* Fullscreen Map Modal for Epicenter Selection */}
+      {showMapModal && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0A0A0A]">
+            <div className="flex items-center gap-3">
+              <MapPin className="w-5 h-5 text-red-400" />
+              <span className="text-sm font-bold text-white uppercase tracking-wider">Select Drop Zone</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMapModal(false)}
+              className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Fullscreen Map */}
+          <div className="flex-1 relative">
+            <MapContainer
+              center={tempEpicenter !== null ? [tempEpicenter.lat, tempEpicenter.lng] : DEFAULT_CENTER}
+              zoom={14}
+              scrollWheelZoom={true}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              />
+              <ModalLocationPicker />
+              {tempEpicenter !== null && (
+                <Marker position={[tempEpicenter.lat, tempEpicenter.lng]} icon={epicenterIcon} />
+              )}
+            </MapContainer>
+
+            {/* Instructions overlay */}
+            {tempEpicenter === null && (
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-sm border border-red-500/30 text-red-300 text-sm px-6 py-3 rounded-xl pointer-events-none">
+                Click anywhere on the map to set epicenter
+              </div>
+            )}
+
+            {/* Coordinates display */}
+            {tempEpicenter !== null && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-green-500/30 text-green-300 text-xs px-4 py-2 rounded-lg pointer-events-none">
+                {tempEpicenter.lat.toFixed(6)}, {tempEpicenter.lng.toFixed(6)}
+              </div>
+            )}
+          </div>
+
+          {/* Modal Footer */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-white/10 bg-[#0A0A0A]">
+            <button
+              type="button"
+              onClick={() => setShowMapModal(false)}
+              className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-white/60 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmCoordinates}
+              disabled={!tempEpicenter}
+              className="px-6 py-3 bg-accent-orange text-white rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-accent-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Confirm Coordinates
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
