@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, FormEvent, useCallback } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Shield,
@@ -58,8 +58,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [maxParticipants, setMaxParticipants] = useState('20');
   const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
-  const [epicenterLat, setEpicenterLat] = useState<number | null>(null);
-  const [epicenterLng, setEpicenterLng] = useState<number | null>(null);
+  const [epicenter, setEpicenter] = useState<{lat: number, lng: number} | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -88,16 +87,15 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     iconAnchor: [12, 12],
   });
 
-  // Map click handler component
-  const MapClickHandler = useCallback(() => {
+  // LocationPicker component - handles map click events
+  const LocationPicker = () => {
     useMapEvents({
       click(e) {
-        setEpicenterLat(e.latlng.lat);
-        setEpicenterLng(e.latlng.lng);
+        setEpicenter({ lat: e.latlng.lat, lng: e.latlng.lng });
       },
     });
     return null;
-  }, []);
+  };
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -161,8 +159,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setMaxParticipants('20');
     setMinParticipants('3');
     setRequiredKeys('4');
-    setEpicenterLat(null);
-    setEpicenterLng(null);
+    setEpicenter(null);
     setEditingId(null);
   };
 
@@ -175,8 +172,11 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setMaxParticipants(String(ev.max_participants ?? 20));
     setMinParticipants(String(ev.min_participants ?? 3));
     setRequiredKeys(String(ev.required_keys ?? 4));
-    setEpicenterLat(ev.epicenter_lat);
-    setEpicenterLng(ev.epicenter_lng);
+    if (ev.epicenter_lat !== null && ev.epicenter_lng !== null) {
+      setEpicenter({ lat: ev.epicenter_lat, lng: ev.epicenter_lng });
+    } else {
+      setEpicenter(null);
+    }
     // Scroll to form
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -213,8 +213,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     }
 
     // Validate epicenter coordinates
-    if (epicenterLat === null || epicenterLng === null) {
-      setToast({ kind: 'err', msg: 'SELECT DROP ZONE ON THE MAP' });
+    if (!epicenter) {
+      alert('SELECT DROP ZONE ON THE MAP');
       setSubmitting(false);
       return;
     }
@@ -227,8 +227,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       max_participants: maxP,
       min_participants: minP,
       required_keys: reqK,
-      epicenter_lat: epicenterLat,
-      epicenter_lng: epicenterLng,
+      epicenter_lat: epicenter.lat,
+      epicenter_lng: epicenter.lng,
     };
 
     if (editingId) {
@@ -422,17 +422,17 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-red-400" />
               <label className="text-[10px] text-red-400/80 tracking-wider uppercase font-bold">
-                SELECT OPERATION EPICENTER
+                SELECT DROP ZONE (EPICENTER)
               </label>
-              {epicenterLat !== null && epicenterLng !== null && (
+              {epicenter !== null && (
                 <span className="text-[10px] text-green-400 ml-auto">
-                  {epicenterLat.toFixed(5)}, {epicenterLng.toFixed(5)}
+                  {epicenter.lat.toFixed(5)}, {epicenter.lng.toFixed(5)}
                 </span>
               )}
             </div>
             <div className="h-64 rounded-xl overflow-hidden border border-white/10 relative" style={{ isolation: 'isolate' }}>
               <MapContainer
-                center={epicenterLat !== null && epicenterLng !== null ? [epicenterLat, epicenterLng] : DEFAULT_CENTER}
+                center={epicenter !== null ? [epicenter.lat, epicenter.lng] : DEFAULT_CENTER}
                 zoom={13}
                 scrollWheelZoom={false}
                 style={{ height: '100%', width: '100%' }}
@@ -442,16 +442,16 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                   attribution='&copy; <a href="https://carto.com/">CARTO</a>'
                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
-                <MapClickHandler />
-                {epicenterLat !== null && epicenterLng !== null && (
-                  <Marker position={[epicenterLat, epicenterLng]} icon={epicenterIcon} />
+                <LocationPicker />
+                {epicenter !== null && (
+                  <Marker position={[epicenter.lat, epicenter.lng]} icon={epicenterIcon} />
                 )}
               </MapContainer>
-              {epicenterLat === null || epicenterLng === null ? (
+              {epicenter === null && (
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-red-500/30 text-red-300 text-[10px] px-3 py-1.5 rounded-lg">
                   Click on map to set epicenter
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
