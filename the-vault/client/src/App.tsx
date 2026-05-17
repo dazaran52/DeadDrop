@@ -16,6 +16,7 @@ import Profile from './components/Profile';
 import AdminPanel from './components/AdminPanel';
 import BottomNav, { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
+import Events from './components/Events';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -105,6 +106,7 @@ export default function App() {
         supabase.auth.signOut();
         setIsLoggedIn(false);
       }} theme={theme} onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />;
+      case 'ops': return <Events onDeploy={(eventId) => { localStorage.setItem('activeOperationId', eventId); setView('hunt'); }} />;
       case 'admin': return <AdminPanel />;
       default: return <Dashboard onStartHunt={() => setView('hunt')} onToggleSuperUser={() => setIsSuperUser(!isSuperUser)} />;
     }
