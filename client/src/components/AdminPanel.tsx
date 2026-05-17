@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Shield,
@@ -20,7 +20,11 @@ import {
   Zap,
   Pencil,
   X,
+  MapPin,
 } from 'lucide-react';
+import { MapContainer, TileLayer, useMapEvents, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 interface AdminPanelProps {
   role: string | null;
@@ -36,6 +40,8 @@ interface AdminEvent {
   min_participants: number | null;
   max_participants: number | null;
   required_keys: number | null;
+  epicenter_lat: number | null;
+  epicenter_lng: number | null;
 }
 
 export default function AdminPanel({ role }: AdminPanelProps) {
@@ -52,8 +58,46 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [maxParticipants, setMaxParticipants] = useState('20');
   const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
+  const [epicenterLat, setEpicenterLat] = useState<number | null>(null);
+  const [epicenterLng, setEpicenterLng] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Default center (Prague)
+  const DEFAULT_CENTER: [number, number] = [50.0755, 14.4378];
+
+  // Custom red marker icon for epicenter
+  const epicenterIcon = L.divIcon({
+    className: 'custom-epicenter-marker',
+    html: `<div style="
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px #ef4444, 0 4px 12px rgba(239, 68, 68, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+      </svg>
+    </div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+
+  // Map click handler component
+  const MapClickHandler = useCallback(() => {
+    useMapEvents({
+      click(e) {
+        setEpicenterLat(e.latlng.lat);
+        setEpicenterLng(e.latlng.lng);
+      },
+    });
+    return null;
+  }, []);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -117,6 +161,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setMaxParticipants('20');
     setMinParticipants('3');
     setRequiredKeys('4');
+    setEpicenterLat(null);
+    setEpicenterLng(null);
     setEditingId(null);
   };
 
@@ -129,6 +175,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setMaxParticipants(String(ev.max_participants ?? 20));
     setMinParticipants(String(ev.min_participants ?? 3));
     setRequiredKeys(String(ev.required_keys ?? 4));
+    setEpicenterLat(ev.epicenter_lat);
+    setEpicenterLng(ev.epicenter_lng);
     // Scroll to form
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -164,6 +212,13 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       return;
     }
 
+    // Validate epicenter coordinates
+    if (epicenterLat === null || epicenterLng === null) {
+      setToast({ kind: 'err', msg: 'SELECT DROP ZONE ON THE MAP' });
+      setSubmitting(false);
+      return;
+    }
+
     const payload = {
       title: title.trim(),
       prize_pool: prize,
@@ -172,6 +227,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       max_participants: maxP,
       min_participants: minP,
       required_keys: reqK,
+      epicenter_lat: epicenterLat,
+      epicenter_lng: epicenterLng,
     };
 
     if (editingId) {
@@ -357,6 +414,44 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 placeholder="4"
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
               />
+            </div>
+          </div>
+
+          {/* Mini Map - Epicenter Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-red-400" />
+              <label className="text-[10px] text-red-400/80 tracking-wider uppercase font-bold">
+                SELECT OPERATION EPICENTER
+              </label>
+              {epicenterLat !== null && epicenterLng !== null && (
+                <span className="text-[10px] text-green-400 ml-auto">
+                  {epicenterLat.toFixed(5)}, {epicenterLng.toFixed(5)}
+                </span>
+              )}
+            </div>
+            <div className="h-64 rounded-xl overflow-hidden border border-white/10 relative" style={{ isolation: 'isolate' }}>
+              <MapContainer
+                center={epicenterLat !== null && epicenterLng !== null ? [epicenterLat, epicenterLng] : DEFAULT_CENTER}
+                zoom={13}
+                scrollWheelZoom={false}
+                style={{ height: '100%', width: '100%' }}
+                className="rounded-xl"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                />
+                <MapClickHandler />
+                {epicenterLat !== null && epicenterLng !== null && (
+                  <Marker position={[epicenterLat, epicenterLng]} icon={epicenterIcon} />
+                )}
+              </MapContainer>
+              {epicenterLat === null || epicenterLng === null ? (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-red-500/30 text-red-300 text-[10px] px-3 py-1.5 rounded-lg">
+                  Click on map to set epicenter
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
