@@ -21,6 +21,7 @@ import {
   Pencil,
   X,
   MapPin,
+  Key,
 } from 'lucide-react';
 import { MapContainer, TileLayer, useMapEvents, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -332,6 +333,45 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     fetchEvents();
   };
 
+  const handleSpawnKeys = async (ev: AdminEvent) => {
+    if (!ev.epicenter_lat || !ev.epicenter_lng) {
+      setToast({ kind: 'err', msg: 'Event has no epicenter set' });
+      return;
+    }
+
+    const reqKeys = ev.required_keys ?? 4;
+    const { data: participants } = await supabase
+      .from('event_participants')
+      .select('user_id')
+      .eq('event_id', ev.id);
+    const participantCount = participants?.length ?? 1;
+    const totalKeys = Math.ceil(reqKeys * participantCount * 1.5);
+
+    const minRadius = 50;
+    const maxRadius = 300;
+    const items: { event_id: string; lat: number; lng: number; is_claimed: boolean }[] = [];
+
+    for (let i = 0; i < totalKeys; i++) {
+      const angle = Math.random() * 2 * Math.PI;
+      const radius = minRadius + Math.random() * (maxRadius - minRadius);
+      const latOffset = (radius / 111000) * Math.cos(angle);
+      const lngOffset = (radius / (111000 * Math.cos(ev.epicenter_lat! * Math.PI / 180))) * Math.sin(angle);
+      items.push({
+        event_id: ev.id,
+        lat: ev.epicenter_lat! + latOffset,
+        lng: ev.epicenter_lng! + lngOffset,
+        is_claimed: false,
+      });
+    }
+
+    const { error } = await supabase.from('event_items').insert(items);
+    if (error) {
+      setToast({ kind: 'err', msg: `Spawn failed: ${error.message}` });
+      return;
+    }
+    setToast({ kind: 'ok', msg: `${totalKeys} keys spawned (${reqKeys} req × ${participantCount} hunters × 1.5)` });
+  };
+
   const fmtDate = (iso: string) => {
     try {
       return new Date(iso).toLocaleString();
@@ -603,13 +643,22 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                     </button>
                   )}
                   {ev.status === 'live' && (
-                    <button
-                      onClick={() => handleEndEvent(ev.id)}
-                      className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-yellow-500/40 hover:text-yellow-300 transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <StopCircle className="w-3 h-3" />
-                      End Event
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleSpawnKeys(ev)}
+                        className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-green-500/40 hover:text-green-300 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Key className="w-3 h-3" />
+                        Spawn Keys
+                      </button>
+                      <button
+                        onClick={() => handleEndEvent(ev.id)}
+                        className="flex-1 py-2 bg-white/5 border border-white/10 text-white/70 text-[10px] tracking-[0.2em] uppercase rounded-lg hover:border-yellow-500/40 hover:text-yellow-300 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <StopCircle className="w-3 h-3" />
+                        End Event
+                      </button>
+                    </>
                   )}
                   {ev.status === 'upcoming' && (
                     <button

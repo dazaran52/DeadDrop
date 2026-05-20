@@ -135,10 +135,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }
     }
 
-    // T-0: long beep + RPC auto-start (fire once)
+    // T-0: RPC auto-start (fire once) — airhorn plays in START overlay useEffect
     if (diffMs <= 0 && !autoStartFiredRef.current) {
       autoStartFiredRef.current = true;
-      playCountdownBeep('go');
 
       (async () => {
         try {
@@ -185,7 +184,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           } catch (e) {
             console.log('Audio creation failed:', e);
           }
-          setTimeout(() => setStartOverlayOpacity(0), 1500);
+          setTimeout(() => setStartOverlayOpacity(0), 500);
           setTimeout(() => setShowStartOverlay(false), 2000);
         }
       } catch (e) {
@@ -193,6 +192,18 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }
     }
   }, [eventStatus, eventStartTime, nowTick, showStartOverlay]);
+
+  // Auto-spawn keys when event goes live (calls server-side RPC)
+  useEffect(() => {
+    if (eventStatus === 'live' && activeOperationId) {
+      supabase.rpc('spawn_event_keys', { p_event_id: activeOperationId })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('spawn_event_keys RPC not available or failed:', error.message);
+          }
+        });
+    }
+  }, [eventStatus, activeOperationId]);
 
   // Fetch operation title and required_keys when activeOperationId changes
   useEffect(() => {
@@ -1031,8 +1042,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         if (showStartOverlay) {
           return (
             <div 
-              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none transition-opacity duration-500"
-              style={{ opacity: startOverlayOpacity }}
+              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none"
+              style={{ opacity: startOverlayOpacity, transition: 'opacity 1500ms ease-out' }}
             >
               <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
                 Awaiting Deployment Signal
