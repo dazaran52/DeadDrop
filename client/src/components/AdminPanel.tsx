@@ -492,7 +492,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
               </label>
               {epicenter !== null && (
                 <span className="text-[10px] text-green-400 ml-auto">
-                  {epicenter.lat.toFixed(5)}, {epicenter.lng.toFixed(5)}
+                  {(epicenter.lat ?? 0).toFixed(5)}, {(epicenter.lng ?? 0).toFixed(5)}
                 </span>
               )}
             </div>
@@ -733,7 +733,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             {/* Coordinates display */}
             {tempEpicenter !== null && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-green-500/30 text-green-300 text-xs px-4 py-2 rounded-lg pointer-events-none">
-                {tempEpicenter.lat.toFixed(6)}, {tempEpicenter.lng.toFixed(6)}
+                {(tempEpicenter.lat ?? 0).toFixed(6)}, {(tempEpicenter.lng ?? 0).toFixed(6)}
               </div>
             )}
           </div>
