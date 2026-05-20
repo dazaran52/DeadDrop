@@ -22,19 +22,19 @@ export default function Diagnostics({ distance, accuracy, lat, lng, status }: Di
         )}
         <div className="flex justify-between space-x-4">
           <span className="opacity-60 uppercase font-black tracking-tight">dist:</span>
-          <span className="font-bold text-accent-blue">{distance.toFixed(1)}m</span>
+          <span className="font-bold text-accent-blue">{(distance ?? 0).toFixed(1)}m</span>
         </div>
         <div className="flex justify-between space-x-4">
           <span className="opacity-60 uppercase font-black tracking-tight">acc:</span>
-          <span className="text-white">±{accuracy.toFixed(1)}m</span>
+          <span className="text-white">±{(accuracy ?? 0).toFixed(1)}m</span>
         </div>
         <div className="flex justify-between space-x-4 border-t border-white/10 pt-1 mt-1">
           <span className="opacity-60 uppercase font-black tracking-tight">lat:</span>
-          <span className="text-white">{lat.toFixed(6)}</span>
+          <span className="text-white">{(lat ?? 0).toFixed(6)}</span>
         </div>
         <div className="flex justify-between space-x-4">
           <span className="opacity-60 uppercase font-black tracking-tight">lng:</span>
-          <span className="text-white">{lng.toFixed(6)}</span>
+          <span className="text-white">{(lng ?? 0).toFixed(6)}</span>
         </div>
       </div>
     </div>

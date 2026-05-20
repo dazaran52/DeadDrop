@@ -57,6 +57,25 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [startOverlayOpacity, setStartOverlayOpacity] = useState(1);
   const beepedAtRef = useRef<Set<number>>(new Set());
   const autoStartFiredRef = useRef<boolean>(false);
+  const [vaults, setVaults] = useState<any[]>([]);
+  const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
+  const [error, setError] = useState<string | null>(null);
+  const [lootAnimations, setLootAnimations] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
+  const [nearestVaultDistance, setNearestVaultDistance] = useState<number | null>(null);
+  const [nearestVaultId, setNearestVaultId] = useState<string | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number>(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const [shouldCenterMap, setShouldCenterMap] = useState(false);
+  const [showConnectionError, setShowConnectionError] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isClaimingRef = useRef(false);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+  const [decryptionProgress, setDecryptionProgress] = useState(0);
+  const [hexCode, setHexCode] = useState('0x000000');
+  const [isClaimed, setIsClaimed] = useState(false);
 
   // 4Hz countdown tick (smoother for big timer)
   useEffect(() => {
@@ -152,6 +171,28 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
     // re-run on tick
   }, [activeOperationId, eventStartTime, eventStatus, playCountdownBeep, onNavigate, nowTick]);
+
+  // START! overlay trigger (must be unconditional top-level hook)
+  useEffect(() => {
+    if (eventStatus === 'upcoming' && eventStartTime) {
+      try {
+        const d = new Date(eventStartTime);
+        if (!isNaN(d.getTime()) && d.getTime() - Date.now() <= 0 && !showStartOverlay) {
+          setShowStartOverlay(true);
+          setStartOverlayOpacity(1);
+          try {
+            new Audio('/sounds/airhorn.mp3').play().catch(err => console.log('Airhorn play failed:', err));
+          } catch (e) {
+            console.log('Audio creation failed:', e);
+          }
+          setTimeout(() => setStartOverlayOpacity(0), 1500);
+          setTimeout(() => setShowStartOverlay(false), 2000);
+        }
+      } catch (e) {
+        console.warn('START overlay date parse error:', e);
+      }
+    }
+  }, [eventStatus, eventStartTime, nowTick, showStartOverlay]);
 
   // Fetch operation title and required_keys when activeOperationId changes
   useEffect(() => {
@@ -426,29 +467,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     const diffMinutes = (start.getTime() - now.getTime()) / (1000 * 60);
     return diffMinutes <= 5;
   })() : false;
-  const [vaults, setVaults] = useState<any[]>([]);
-  const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
-  const [error, setError] = useState<string | null>(null);
-  const [lootAnimations, setLootAnimations] = useState<any[]>([]);
-  const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
-  const [nearestVaultDistance, setNearestVaultDistance] = useState<number | null>(null);
-  const [nearestVaultId, setNearestVaultId] = useState<string | null>(null);
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [gpsAccuracy, setGpsAccuracy] = useState<number>(0);
-  const [isConnected, setIsConnected] = useState(false);
-  const [shouldCenterMap, setShouldCenterMap] = useState(false);
-  const [showConnectionError, setShowConnectionError] = useState(false);
-  
-  // Refs for Web Audio API
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isClaimingRef = useRef(false);
-  
-  // Hacking states
-  const [isDecrypting, setIsDecrypting] = useState(false);
-  const [decryptionProgress, setDecryptionProgress] = useState(0);
-  const [hexCode, setHexCode] = useState('0x000000');
-  const [isClaimed, setIsClaimed] = useState(false);
 
   // Track nearest item when user location or items change
   useEffect(() => {
@@ -1009,28 +1027,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         const isFinalCountdown = totalSec <= 3 && totalSec >= 1;
         const isGo = diffMs <= 0;
 
-        // Trigger START! overlay with fade out animation
-        useEffect(() => {
-          if (isGo && !showStartOverlay) {
-            setShowStartOverlay(true);
-            setStartOverlayOpacity(1);
-            // Play airhorn sound when timer reaches 0
-            try {
-              new Audio('/sounds/airhorn.mp3').play().catch(err => console.log('Airhorn play failed:', err));
-            } catch (e) {
-              console.log('Audio creation failed:', e);
-            }
-            // Start fade out after 1.5 seconds, complete in 0.5 seconds
-            setTimeout(() => {
-              setStartOverlayOpacity(0);
-            }, 1500);
-            // Hide overlay completely after fade animation
-            setTimeout(() => {
-              setShowStartOverlay(false);
-            }, 2000);
-          }
-        }, [isGo]);
-
         // If START! overlay is active, render it with fade animation
         if (showStartOverlay) {
           return (
@@ -1351,7 +1347,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                       {userLocation.latitude === 0 && userLocation.longitude === 0
                         ? 'WAITING...'
                         : nearestVaultDistance !== null
-                        ? nearestVaultDistance.toFixed(0)
+                        ? (nearestVaultDistance?.toFixed(0) ?? '0')
                         : 'SCAN'}
                     </span>
                     <span className="text-xs font-black text-white/50 uppercase tracking-wider">M</span>

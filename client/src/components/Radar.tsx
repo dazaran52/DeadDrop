@@ -89,7 +89,7 @@ export default function Radar({ distance }: RadarProps) {
         <div className="mt-12 flex flex-col items-center">
           <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-1">Target Proximity</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-light text-white font-mono">{distance.toFixed(1)}</span>
+            <span className="text-4xl font-light text-white font-mono">{(distance ?? 0).toFixed(1)}</span>
             <span className="text-sm font-bold text-accent-orange/60 italic font-mono uppercase tracking-tighter">METERS</span>
           </div>
         </div>
