@@ -58,59 +58,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const beepedAtRef = useRef<Set<number>>(new Set());
   const autoStartFiredRef = useRef<boolean>(false);
 
-  // Realtime subscription for event status changes (admin kick)
-  useEffect(() => {
-    if (!activeOperationId) return;
-
-    const channel = supabase
-      .channel('event-status')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'events',
-          filter: `id=eq.${activeOperationId}`
-        },
-        (payload) => {
-          const newStatus = payload.new.status;
-          if (newStatus === 'ended' || newStatus === 'cancelled') {
-            alert('УПЛИНК РАЗОРВАН. ОПЕРАЦИЯ ЗАВЕРШЕНА.');
-            localStorage.removeItem('activeOperationId');
-            if (onNavigate) onNavigate('events');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeOperationId, onNavigate]);
-
-  // Polling fallback for event status (every 3 seconds)
-  useEffect(() => {
-    if (!activeOperationId) return;
-
-    const pollInterval = setInterval(async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('status')
-        .eq('id', activeOperationId)
-        .single();
-
-      if (error || !data) return;
-
-      if (data.status === 'ended' || data.status === 'cancelled') {
-        alert('УПЛИНК РАЗОРВАН. ОПЕРАЦИЯ ЗАВЕРШЕНА.');
-        localStorage.removeItem('activeOperationId');
-        if (onNavigate) onNavigate('events');
-      }
-    }, 3000);
-
-    return () => clearInterval(pollInterval);
-  }, [activeOperationId, onNavigate]);
-
   // 4Hz countdown tick (smoother for big timer)
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 250);
