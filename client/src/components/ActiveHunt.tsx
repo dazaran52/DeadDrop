@@ -423,7 +423,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [gpsAccuracy, setGpsAccuracy] = useState<number>(0);
   const [isConnected, setIsConnected] = useState(false);
   const [shouldCenterMap, setShouldCenterMap] = useState(false);
-  const [showDev, setShowDev] = useState(false);
   const [showConnectionError, setShowConnectionError] = useState(false);
   
   // Refs for Web Audio API
@@ -1541,30 +1540,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* DEV Menu Toggle */}
-      {process.env.NODE_ENV === 'development' && (
-        <button
-          onClick={() => setShowDev(!showDev)}
-          className="fixed bottom-2 left-2 z-50 px-2 py-1 bg-black/50 border border-gray-700/50 rounded text-[8px] font-black text-gray-400 uppercase tracking-wider hover:bg-black/70 transition-colors"
-        >
-          ⚙️ v0.1
-        </button>
-      )}
-
-      {/* DEV Menu */}
-      {process.env.NODE_ENV === 'development' && showDev && (
-        <div className="fixed bottom-8 left-4 z-50 space-y-2">
-          <div className="bg-black/90 border border-gray-700/50 rounded-lg p-3 backdrop-blur-sm">
-            <div className="text-[8px] font-mono text-green-400 mb-2">
-              STATUS: {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
-            </div>
-            <div className="text-[9px] font-mono text-white/40 uppercase tracking-wider">
-              vault spawn: server-side only
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Connection Error Overlay - Non-destructive overlay */}
       {showConnectionError && !isConnected && (
