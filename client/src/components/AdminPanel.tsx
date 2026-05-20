@@ -690,7 +690,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
           </div>
 
           {/* Modal Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-white/10 bg-[#0A0A0A]">
+          <div className="flex items-center justify-between px-6 py-4 pb-32 border-t border-white/10 bg-[#0A0A0A]">
             <button
               type="button"
               onClick={() => setShowMapModal(false)}

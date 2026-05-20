@@ -91,7 +91,21 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   useEffect(() => {
     if (!activeOperationId || !eventStartTime || eventStatus !== 'upcoming') return;
 
-    const diffMs = new Date(eventStartTime).getTime() - Date.now();
+    // Validate date before parsing to prevent crashes
+    let eventTime: number;
+    try {
+      const parsedDate = new Date(eventStartTime);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid eventStartTime:', eventStartTime);
+        return;
+      }
+      eventTime = parsedDate.getTime();
+    } catch (e) {
+      console.warn('Error parsing eventStartTime:', eventStartTime, e);
+      return;
+    }
+
+    const diffMs = eventTime - Date.now();
     const diffSec = Math.ceil(diffMs / 1000);
 
     // Beep at 3, 2, 1
@@ -977,7 +991,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Pre-deployment Mario Kart countdown overlay */}
       {eventStatus === 'upcoming' && eventStartTime && (() => {
-        const diffMs = new Date(eventStartTime).getTime() - Date.now();
+        // Validate date before parsing to prevent crashes
+        let diffMs: number;
+        try {
+          const parsedDate = new Date(eventStartTime);
+          if (isNaN(parsedDate.getTime())) {
+            console.warn('Invalid eventStartTime in countdown:', eventStartTime);
+            return null;
+          }
+          diffMs = parsedDate.getTime() - Date.now();
+        } catch (e) {
+          console.warn('Error parsing eventStartTime in countdown:', eventStartTime, e);
+          return null;
+        }
+
         const totalSec = Math.max(0, Math.ceil(diffMs / 1000));
         const isFinalCountdown = totalSec <= 3 && totalSec >= 1;
         const isGo = diffMs <= 0;
@@ -1073,7 +1100,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       })()}
 
       {/* Observer Mode Blur Overlay */}
-      {activeOperationId === null && (
+      {activeOperationId === null && (eventStatus !== 'started' && eventStatus !== 'active' && eventStatus !== 'live') && (
         <div className="absolute inset-0 backdrop-blur-md bg-black/40 z-40 flex flex-col items-center justify-center px-4">
           {!localIsAwaitingDeployment ? (
             <div className="text-center space-y-4 px-8">
