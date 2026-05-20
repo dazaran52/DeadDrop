@@ -135,7 +135,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setLoading(true);
     const { data, error: dbError } = await supabase
       .from('events')
-      .select('id, title, prize_pool, entry_fee, start_time, status, min_participants, max_participants, required_keys')
+      .select('id, title, prize_pool, entry_fee, start_time, status, min_participants, max_participants, required_keys, epicenter_lat, epicenter_lng')
       .in('status', ['live', 'upcoming'])
       .order('start_time', { ascending: true });
 

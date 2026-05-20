@@ -57,6 +57,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [startOverlayOpacity, setStartOverlayOpacity] = useState(1);
   const beepedAtRef = useRef<Set<number>>(new Set());
   const autoStartFiredRef = useRef<boolean>(false);
+  const startOverlayFiredRef = useRef<boolean>(false);
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
   const [error, setError] = useState<string | null>(null);
@@ -171,12 +172,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     // re-run on tick
   }, [activeOperationId, eventStartTime, eventStatus, playCountdownBeep, onNavigate, nowTick]);
 
-  // START! overlay trigger (must be unconditional top-level hook)
+  // START! overlay trigger — fires exactly once at T-0
   useEffect(() => {
-    if (eventStatus === 'upcoming' && eventStartTime) {
+    if (eventStatus === 'upcoming' && eventStartTime && !startOverlayFiredRef.current) {
       try {
         const d = new Date(eventStartTime);
-        if (!isNaN(d.getTime()) && d.getTime() - Date.now() <= 0 && !showStartOverlay) {
+        if (!isNaN(d.getTime()) && d.getTime() - Date.now() <= 0) {
+          startOverlayFiredRef.current = true;
           setShowStartOverlay(true);
           setStartOverlayOpacity(1);
           try {
@@ -191,18 +193,53 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         console.warn('START overlay date parse error:', e);
       }
     }
-  }, [eventStatus, eventStartTime, nowTick, showStartOverlay]);
+  }, [eventStatus, eventStartTime, nowTick]);
 
-  // Auto-spawn keys when event goes live (calls server-side RPC)
+  // Auto-spawn keys when event goes live
   useEffect(() => {
-    if (eventStatus === 'live' && activeOperationId) {
-      supabase.rpc('spawn_event_keys', { p_event_id: activeOperationId })
-        .then(({ error }) => {
-          if (error) {
-            console.warn('spawn_event_keys RPC not available or failed:', error.message);
-          }
-        });
-    }
+    if (eventStatus !== 'live' || !activeOperationId) return;
+    const autoSpawnFired = localStorage.getItem(`keys_spawned_${activeOperationId}`);
+    if (autoSpawnFired) return;
+
+    (async () => {
+      try {
+        const { data: ev } = await supabase
+          .from('events')
+          .select('epicenter_lat, epicenter_lng, required_keys')
+          .eq('id', activeOperationId)
+          .single();
+
+        if (!ev?.epicenter_lat || !ev?.epicenter_lng) return;
+
+        const { data: participants } = await supabase
+          .from('event_participants')
+          .select('user_id')
+          .eq('event_id', activeOperationId);
+
+        const participantCount = participants?.length ?? 1;
+        const reqKeys = ev.required_keys ?? 4;
+        const totalKeys = Math.ceil(reqKeys * participantCount * 1.5);
+
+        const items: { event_id: string; lat: number; lng: number; is_claimed: boolean }[] = [];
+        for (let i = 0; i < totalKeys; i++) {
+          const angle = Math.random() * 2 * Math.PI;
+          const radius = 50 + Math.random() * 250;
+          const latOffset = (radius / 111000) * Math.cos(angle);
+          const lngOffset = (radius / (111000 * Math.cos(ev.epicenter_lat * Math.PI / 180))) * Math.sin(angle);
+          items.push({ event_id: activeOperationId, lat: ev.epicenter_lat + latOffset, lng: ev.epicenter_lng + lngOffset, is_claimed: false });
+        }
+
+        const { error } = await supabase.from('event_items').insert(items);
+        if (!error) {
+          localStorage.setItem(`keys_spawned_${activeOperationId}`, '1');
+          console.log(`[auto-spawn] ${totalKeys} keys spawned for event ${activeOperationId}`);
+        } else {
+          console.warn('[auto-spawn] insert failed:', error.message);
+        }
+      } catch (e) {
+        console.warn('[auto-spawn] exception:', e);
+      }
+    })();
   }, [eventStatus, activeOperationId]);
 
   // Fetch operation title and required_keys when activeOperationId changes
