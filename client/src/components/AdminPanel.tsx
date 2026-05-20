@@ -349,7 +349,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
 
     const minRadius = 50;
     const maxRadius = 300;
-    const items: { event_id: string; lat: number; lng: number; is_claimed: boolean }[] = [];
+    const items: { event_id: string; lat: number; lng: number; is_claimed: boolean; type: string }[] = [];
 
     for (let i = 0; i < totalKeys; i++) {
       const angle = Math.random() * 2 * Math.PI;
@@ -361,6 +361,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
         lat: ev.epicenter_lat! + latOffset,
         lng: ev.epicenter_lng! + lngOffset,
         is_claimed: false,
+        type: 'key',
       });
     }
 

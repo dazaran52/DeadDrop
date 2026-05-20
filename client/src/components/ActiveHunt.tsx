@@ -220,13 +220,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         const reqKeys = ev.required_keys ?? 4;
         const totalKeys = Math.ceil(reqKeys * participantCount * 1.5);
 
-        const items: { event_id: string; lat: number; lng: number; is_claimed: boolean }[] = [];
+        const items: { event_id: string; lat: number; lng: number; is_claimed: boolean; type: string }[] = [];
         for (let i = 0; i < totalKeys; i++) {
           const angle = Math.random() * 2 * Math.PI;
           const radius = 50 + Math.random() * 250;
           const latOffset = (radius / 111000) * Math.cos(angle);
           const lngOffset = (radius / (111000 * Math.cos(ev.epicenter_lat * Math.PI / 180))) * Math.sin(angle);
-          items.push({ event_id: activeOperationId, lat: ev.epicenter_lat + latOffset, lng: ev.epicenter_lng + lngOffset, is_claimed: false });
+          items.push({ event_id: activeOperationId, lat: ev.epicenter_lat + latOffset, lng: ev.epicenter_lng + lngOffset, is_claimed: false, type: 'key' });
         }
 
         const { error } = await supabase.from('event_items').insert(items);
@@ -1075,26 +1075,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         const isFinalCountdown = totalSec <= 3 && totalSec >= 1;
         const isGo = diffMs <= 0;
 
-        // If START! overlay is active, render it with fade animation
-        if (showStartOverlay) {
-          return (
-            <div 
-              className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none"
-              style={{ opacity: startOverlayOpacity, transition: 'opacity 1500ms ease-out' }}
-            >
-              <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
-                Awaiting Deployment Signal
-              </div>
-              <div className="select-none font-black tracking-tighter text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse">
-                START!
-              </div>
-              <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                Connecting to grid…
-              </div>
-            </div>
-          );
-        }
-
         // Show countdown for upcoming events (before GO)
         if (!isGo) {
           let bigText: string;
@@ -1142,6 +1122,24 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
         return null;
       })()}
+
+      {/* START! overlay — independent of eventStatus, survives transition to live */}
+      {showStartOverlay && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none"
+          style={{ opacity: startOverlayOpacity, transition: 'opacity 1500ms ease-out' }}
+        >
+          <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
+            Awaiting Deployment Signal
+          </div>
+          <div className="select-none font-black tracking-tighter text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse">
+            START!
+          </div>
+          <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
+            Connecting to grid…
+          </div>
+        </div>
+      )}
 
       {/* Observer Mode Blur Overlay */}
       {activeOperationId === null && (eventStatus !== 'started' && eventStatus !== 'active' && eventStatus !== 'live') && (
