@@ -12,6 +12,7 @@ import LiveRoster from './LiveRoster';
 import { getDistance } from '../utils/geoUtils';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
+import { useMapStore } from '../lib/useMapStore';
 import confetti from 'canvas-confetti';
 
 interface ActiveHuntProps {
@@ -39,6 +40,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [operationTitle, setOperationTitle] = useState<string | null>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [nearbyItem, setNearbyItem] = useState<any>(null);
+  const { mapItems, setMapItems, removeMapItem, clearMapItems } = useMapStore();
   const [collectedKeys, setCollectedKeys] = useState<number>(0);
   const [matchResult, setMatchResult] = useState<MatchResult>('playing');
   const [canExit, setCanExit] = useState(false);
@@ -195,6 +197,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
   }, [eventStatus, eventStartTime, nowTick]);
 
+  // Refresh map items when event goes live (keys just spawned)
+  useEffect(() => {
+    if (eventStatus === 'live' && activeOperationId) {
+      supabase
+        .from('event_items')
+        .select('*')
+        .eq('event_id', activeOperationId)
+        .eq('is_claimed', false)
+        .then(({ data }) => {
+          if (data && data.length > 0) setMapItems(data);
+        });
+    }
+  }, [eventStatus, activeOperationId, setMapItems]);
+
   // Auto-spawn keys when event goes live
   useEffect(() => {
     if (eventStatus !== 'live' || !activeOperationId) return;
@@ -278,9 +294,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setEventStartTime(data.start_time);
       };
 
+      clearMapItems();
       fetchOperationInfo();
 
-      // Fetch event items from Supabase
+      // Fetch event items from Supabase into Zustand store
       const fetchEventItems = async () => {
         console.log('--- FETCHING ITEMS FOR EVENT:', activeOperationId);
         const { data, error } = await supabase
@@ -289,13 +306,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .eq('event_id', activeOperationId)
           .eq('is_claimed', false);
 
-        if (error) console.error('SUPABASE ERROR:', error);
-        if (data && Array.isArray(data)) {
-          setInventory(prev => ({
-            ...prev,
-            items: data
-          }));
-          console.log('--- MAP ITEMS LOADED:', data);
+        if (error) {
+          console.error('SUPABASE ERROR:', error);
+        } else if (data && Array.isArray(data)) {
+          setMapItems(data);
+          console.log('--- MAP ITEMS LOADED:', data.length, 'items');
         } else {
           console.warn('Supabase returned invalid or empty data:', data);
         }
@@ -390,6 +405,47 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }
     }
   }, [matchResult]);
+
+  // Supabase Realtime listener for event_items (key pickup by any player)
+  useEffect(() => {
+    if (!activeOperationId) return;
+
+    const itemsChannel = supabase
+      .channel(`event_items_${activeOperationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'event_items',
+          filter: `event_id=eq.${activeOperationId}`,
+        },
+        (payload) => {
+          if (payload.new.is_claimed) {
+            removeMapItem(payload.new.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'event_items',
+          filter: `event_id=eq.${activeOperationId}`,
+        },
+        (payload) => {
+          if (!payload.new.is_claimed) {
+            useMapStore.getState().addMapItem(payload.new as any);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(itemsChannel);
+    };
+  }, [activeOperationId, removeMapItem]);
 
   // Supabase Realtime listener for event status changes
   useEffect(() => {
@@ -518,7 +574,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
   // Track nearest item when user location or items change
   useEffect(() => {
-    const items = inventory.items;
+    const items = mapItems;
     if (items && items.length > 0) {
       let nearest = null;
       let minDistance = Infinity;
@@ -540,7 +596,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     } else {
       setNearbyItem(null);
     }
-  }, [userLocation, inventory.items]);
+  }, [userLocation, mapItems]);
 
   // Web Audio API for radar ping
   const playPing = useCallback(() => {
@@ -592,10 +648,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       // If data is empty, someone else already claimed it
       if (!data || data.length === 0) {
-        setInventory(prev => ({
-          ...prev,
-          items: prev.items.filter((item: any) => item.id !== nearbyItem.id)
-        }));
+        removeMapItem(nearbyItem.id);
         setNearbyItem(null);
         setError('TOO LATE. ITEM ALREADY CLAIMED');
         setTimeout(() => setError(null), 3000);
@@ -622,11 +675,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       }
 
       // Remove from local state
-      setInventory(prev => ({
-        ...prev,
-        items: prev.items.filter((item: any) => item.id !== nearbyItem.id)
-      }));
-
+      removeMapItem(nearbyItem.id);
       setNearbyItem(null);
       setCollectedKeys(currentKeys + 1);
       setClaimOverlay('KEY SECURED');
@@ -743,29 +792,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         });
       });
 
-      // Listen for inventory initialization
+      // Listen for inventory initialization (balance + role only — map items handled by Zustand)
       socketInstance.on('inventory:init', (inventoryData) => {
-        console.log('--- FETCHING ITEMS FOR EVENT:', activeOperationId);
-        console.log('FETCHED ITEMS:', inventoryData?.items);
-        console.log('Получен инвентарь:', inventoryData);
         if (inventoryData) {
-          const items = inventoryData.items;
-          if (Array.isArray(items) && items.length > 0) {
-            setInventory({
-              items: items,
-              balance: inventoryData.balance ?? 0,
-              role: inventoryData.role || 'user'
-            });
-            console.log('--- MAP ITEMS LOADED:', items);
-          } else {
-            console.warn('Blocked invalid map items update from socket (inventory:init):', items);
-            // Only update balance and role, preserve existing items
-            setInventory(prev => ({
-              items: prev.items,
-              balance: inventoryData.balance ?? prev.balance,
-              role: inventoryData.role ?? prev.role
-            }));
-          }
+          setInventory(prev => ({
+            ...prev,
+            balance: inventoryData.balance ?? prev.balance,
+            role: inventoryData.role ?? prev.role,
+          }));
         }
       });
 
@@ -792,6 +826,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         }
       });
 
+      // Listen for anti-cheat flagging
+      socketInstance.on('anticheat:flagged', (data) => {
+        console.warn('[anticheat] Flagged:', data);
+        setError(`ANTI-CHEAT: SPEED ANOMALY (${data.speed} m/s) — CLAIMS BLOCKED`);
+        setTimeout(() => setError(null), 5000);
+      });
+
       // Listen for vault errors
       socketInstance.on('vault:error', (error) => {
         console.error('Ошибка сейфа:', error);
@@ -807,7 +848,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       });
 
       // Listen for vault claimed
-      socketInstance.on('vault:claimed', async (vault) => {
+      socketInstance.on('vault:claimed', async (vault: any) => {
         console.log('Сейф открыт:', vault);
         // Reset claiming flag
         isClaimingRef.current = false;
@@ -870,6 +911,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         socketInstance.off('vault:error');
         socketInstance.off('error:no_keys');
         socketInstance.off('vault:claimed');
+        socketInstance.off('anticheat:flagged');
         socketInstance.disconnect();
       };
     };
@@ -1355,7 +1397,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               vaults={vaults}
               lootAnimations={lootAnimations}
               rewards={rewards}
-              items={inventory.items}
+              items={mapItems}
               shouldCenter={shouldCenterMap}
               onMapReady={setMapInstance}
               onVaultClaim={(vaultId) => {

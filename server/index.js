@@ -40,6 +40,9 @@ app.use(express.json());
 const playerPositions = new Map(); // Track player positions by playerId
 const socketToPlayerId = new Map(); // Map socket.id to playerId
 
+const MAX_SPEED_MS = 8.3; // m/s = 30 km/h (walking/running max)
+const MAX_STRIKES = 3;    // strikes before flagging
+
 /**
  * Calculate distance between two GPS coordinates using Haversine formula
  * @param {number} lat1 - First latitude
@@ -111,10 +114,46 @@ io.on('connection', (socket) => {
     const playerId = socketToPlayerId.get(socket.id);
     if (!playerId) return;
 
+    const now = Date.now();
+    const prev = playerPositions.get(playerId);
+
+    // Speed Cap anti-cheat
+    if (prev && prev.timestamp) {
+      const timeDelta = (now - prev.timestamp) / 1000; // seconds
+      if (timeDelta > 0 && timeDelta < 60) { // ignore stale pings
+        const dist = calculateDistance(prev.lat, prev.lng, payload.latitude, payload.longitude);
+        const speed = dist / timeDelta; // m/s
+        if (speed > MAX_SPEED_MS) {
+          const strikes = (prev.strikes || 0) + 1;
+          console.warn(`[anticheat] Player ${playerId} speed ${speed.toFixed(1)} m/s — strike ${strikes}/${MAX_STRIKES}`);
+          playerPositions.set(playerId, {
+            lat: payload.latitude,
+            lng: payload.longitude,
+            timestamp: now,
+            strikes,
+            flagged: strikes >= MAX_STRIKES,
+          });
+          if (strikes >= MAX_STRIKES) {
+            socket.emit('anticheat:flagged', { reason: 'SPEED_CAP', speed: speed.toFixed(1) });
+          }
+          // Broadcast position but don't update store coords to avoid loop
+          socket.broadcast.emit('gps:update', { id: playerId, ...payload });
+          return; // skip vault fetch on suspicious ping
+        }
+      }
+    }
+
     console.log(`Игрок ${playerId} обновил позицию: [${payload.latitude.toFixed(6)}, ${payload.longitude.toFixed(6)}]`);
 
-    // Store player position for distance validation
-    playerPositions.set(playerId, { lat: payload.latitude, lng: payload.longitude });
+    // Store player position (reset strikes on valid ping if was < MAX)
+    const prevStrikes = prev?.strikes || 0;
+    playerPositions.set(playerId, {
+      lat: payload.latitude,
+      lng: payload.longitude,
+      timestamp: now,
+      strikes: Math.max(0, prevStrikes - 1), // decay 1 strike per good ping
+      flagged: prevStrikes >= MAX_STRIKES,
+    });
 
     try {
       // Fetch active vaults from database
@@ -146,6 +185,13 @@ io.on('connection', (socket) => {
       const position = playerPositions.get(playerId);
       if (!position) {
         socket.emit('vault:error', { message: 'Позиция игрока неизвестна' });
+        return;
+      }
+
+      // Anti-cheat: block flagged players
+      if (position.flagged) {
+        socket.emit('vault:error', { message: 'ANTI-CHEAT: MOVEMENT ANOMALY DETECTED' });
+        console.warn(`[anticheat] Blocked vault claim by flagged player ${playerId}`);
         return;
       }
 
