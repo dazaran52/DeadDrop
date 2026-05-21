@@ -990,7 +990,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
   }, [userLocation, isClaimed, vaultLocation]);
 
-  // Hex code simulation
+  // Hex code simulation 
   useEffect(() => {
     if (isDecrypting && !isClaimed) {
       const interval = setInterval(() => {
