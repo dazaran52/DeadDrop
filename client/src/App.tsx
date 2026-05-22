@@ -15,12 +15,12 @@ import Profile from './components/Profile';
 import AliasInit from './components/AliasInit';
 import AdminPanel from './components/AdminPanel';
 import Events from './components/Events';
-import BottomNav, { ViewType } from './components/BottomNav';
+import { ViewType } from './components/BottomNav';
 import ActiveHunt from './components/ActiveHunt';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Loader2, Map as MapIcon, User, Trophy, Shield } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -35,8 +35,7 @@ export default function App() {
   const [role, setRole] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
-  const [isSocketConnected, setIsSocketConnected] = useState(false);
-  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+  const [socketInstance] = useState<Socket | null>(null);
   const [activeOperationId, setActiveOperationId] = useState<string | null>(() => typeof window !== 'undefined' ? localStorage.getItem('activeOperationId') : null);
   const [registeredEvents, setRegisteredEvents] = useState<Array<{ id: string; start_time: string }>>([]);
 
@@ -87,7 +86,6 @@ export default function App() {
       // If logged in, load initial data from Supabase
       if (session) {
         loadInitialData(session.user.id);
-        initSocketConnection(session.user.id);
       }
     });
 
@@ -98,7 +96,6 @@ export default function App() {
 
       if (session) {
         loadInitialData(session.user.id);
-        initSocketConnection(session.user.id);
       } else {
         setIsAppReady(false);
         setBalance(0);
@@ -139,38 +136,6 @@ export default function App() {
     }
   };
 
-  const initSocketConnection = async (userId: string) => {
-    const socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
-      path: '/socket.io',
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
-
-    setSocketInstance(socketInstance);
-
-    socketInstance.emit('player:identify', { playerId: userId });
-
-    socketInstance.on('connect', () => {
-      setIsSocketConnected(true);
-      console.log('Socket connected');
-    });
-
-    socketInstance.on('disconnect', () => {
-      setIsSocketConnected(false);
-      console.log('Socket disconnected');
-    });
-
-    // Listen for player profile sync (real-time updates only)
-    socketInstance.on('player:sync', (profileData) => {
-      console.log('Real-time profile update:', profileData);
-      if (profileData) {
-        setBalance(profileData.balance ?? 0);
-      }
-    });
-  };
-
-  console.log('Session:', isLoggedIn);
-  console.log('App Ready:', isAppReady);
 
   if (authLoading) {
     return (
@@ -217,8 +182,8 @@ export default function App() {
           <ShieldAlert className="w-8 h-8 text-white/40" />
         </div>
         <div className="space-y-4">
-          <h1 className="text-text-main font-black text-4xl tracking-tighter uppercase leading-none">Uplink.Failure</h1>
-          <p className="text-text-muted font-medium text-xs uppercase tracking-widest max-w-[240px]">Geospatial authorization is required to access the central terminal.</p>
+          <h1 className="text-text-main font-black text-4xl tracking-tighter uppercase leading-none">Location Required</h1>
+          <p className="text-text-muted font-medium text-xs uppercase tracking-widest max-w-[240px]">Please enable location access to play DeadDrop.</p>
         </div>
         <button
           onClick={() => window.location.reload()}
@@ -289,22 +254,13 @@ export default function App() {
 
         <div className="flex-1 flex flex-col pt-4 lg:pt-12 relative overflow-hidden">
           {/* Reconnecting Badge */}
-          {!isSocketConnected && isAppReady && (
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[70] bg-red-500/20 border border-red-500/50 px-4 py-2 rounded-full">
-              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Reconnecting...</span>
-            </div>
-          )}
 
           {view !== 'hunt' && (
             <header className="px-6 flex justify-between items-end border-b border-white/10 pb-4 mb-2">
               <div className="flex flex-col">
                 <span className="text-2xl font-black uppercase tracking-tighter text-white">
-                  {view === 'events' ? 'NEXUS LOBBY' : view === 'profile' ? 'OPERATIVE DOSSIER' : 'NEXUS LOBBY'}
+                  {view === 'events' ? 'Events' : view === 'profile' ? 'Profile' : view === 'admin' ? 'Admin' : 'Events'}
                 </span>
-              </div>
-              <div className="flex flex-col text-right">
-                <span className="text-[10px] uppercase tracking-widest text-white/50 font-bold">Latency</span>
-                <span className="text-xs font-black italic text-white">0.02ms</span>
               </div>
             </header>
           )}
@@ -316,19 +272,23 @@ export default function App() {
           </main>
 
           {/* Global Floating Pill Navigation - Always Visible */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-4 z-[9999]">
-            <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'events' ? 'opacity-100 text-accent-orange scale-110' : 'opacity-50'}`}>
-              <Trophy size={24} strokeWidth={view === 'events' ? 2.5 : 2} />
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-3 z-[9999]">
+            <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-all ${view === 'events' ? 'opacity-100 text-accent-orange scale-105' : 'opacity-40'}`}>
+              <Trophy size={22} strokeWidth={view === 'events' ? 2.5 : 2} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Events</span>
             </button>
-            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-110' : 'opacity-50'}`}>
-              <MapIcon size={28} strokeWidth={view === 'hunt' ? 3 : 2} />
+            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-all ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-105' : 'opacity-40'}`}>
+              <MapIcon size={24} strokeWidth={view === 'hunt' ? 3 : 2} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Map</span>
             </button>
-            <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'profile' ? 'opacity-100 text-blue-400' : 'opacity-50'}`}>
-              <User size={24} strokeWidth={view === 'profile' ? 2.5 : 2} />
+            <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-all ${view === 'profile' ? 'opacity-100 text-blue-400 scale-105' : 'opacity-40'}`}>
+              <User size={22} strokeWidth={view === 'profile' ? 2.5 : 2} />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Profile</span>
             </button>
             {isSuperUser && (
-              <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-opacity ${view === 'admin' ? 'opacity-100 text-red-400' : 'opacity-50'}`}>
-                <Shield size={24} strokeWidth={view === 'admin' ? 2.5 : 2} />
+              <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-all ${view === 'admin' ? 'opacity-100 text-red-400 scale-105' : 'opacity-40'}`}>
+                <Shield size={22} strokeWidth={view === 'admin' ? 2.5 : 2} />
+                <span className="text-[9px] font-bold uppercase tracking-wider">Admin</span>
               </button>
             )}
           </div>

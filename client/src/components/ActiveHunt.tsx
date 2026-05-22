@@ -61,7 +61,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const autoStartFiredRef = useRef<boolean>(false);
   const startOverlayFiredRef = useRef<boolean>(false);
   const [vaults, setVaults] = useState<any[]>([]);
-  const [inventory, setInventory] = useState({ items: [], balance: null, role: 'user' });
+  const [inventory, setInventory] = useState({ balance: null as number | null, role: 'user' });
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -75,16 +75,19 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const audioCtxRef = useRef<AudioContext | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isClaimingRef = useRef(false);
+  const isClaimingItemRef = useRef(false);
+  const lastGpsSentRef = useRef<number>(0);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [hexCode, setHexCode] = useState('0x000000');
   const [isClaimed, setIsClaimed] = useState(false);
 
-  // 4Hz countdown tick (smoother for big timer)
+  // 4Hz countdown tick — only needed while event is upcoming
   useEffect(() => {
+    if (eventStatus !== 'upcoming') return;
     const id = setInterval(() => setNowTick((n) => n + 1), 250);
     return () => clearInterval(id);
-  }, []);
+  }, [eventStatus]);
 
   // Mario Kart-style beep at 3,2,1 (high) and 0 (long low)
   const playCountdownBeep = useCallback((kind: 'tick' | 'go') => {
@@ -149,15 +152,19 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           });
           if (error) {
             console.error('attempt_auto_start error:', error);
-            alert(`OPERATION ABORTED: ${error.message}`);
-            localStorage.removeItem('activeOperationId');
-            if (onNavigate) onNavigate('events');
+            setError(`Event could not start: ${error.message}`);
+            setTimeout(() => {
+              localStorage.removeItem('activeOperationId');
+              if (onNavigate) onNavigate('events');
+            }, 3000);
             return;
           }
           if (data === 'cancelled') {
-            alert('OPERATION ABORTED: NOT ENOUGH HUNTERS. REFUND ISSUED.');
-            localStorage.removeItem('activeOperationId');
-            if (onNavigate) onNavigate('events');
+            setError('Event cancelled — not enough players. Your entry fee has been refunded.');
+            setTimeout(() => {
+              localStorage.removeItem('activeOperationId');
+              if (onNavigate) onNavigate('events');
+            }, 4000);
             return;
           }
           if (data === 'live') {
@@ -165,9 +172,11 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           }
         } catch (e: any) {
           console.error('auto-start exception:', e);
-          alert(`OPERATION ABORTED: ${e?.message || 'unknown error'}`);
-          localStorage.removeItem('activeOperationId');
-          if (onNavigate) onNavigate('events');
+          setError(`Something went wrong: ${e?.message || 'unknown error'}`);
+          setTimeout(() => {
+            localStorage.removeItem('activeOperationId');
+            if (onNavigate) onNavigate('events');
+          }, 3000);
         }
       })();
     }
@@ -471,8 +480,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           }
           // Kick player out if event is ended or cancelled
           if (newStatus === 'ended' || newStatus === 'cancelled') {
-            localStorage.setItem('lobbyToast', 'OPERATION TERMINATED');
+            localStorage.setItem('lobbyToast', 'Event has ended');
             localStorage.removeItem('activeOperationId');
+            localStorage.removeItem(`keys_spawned_${activeOperationId}`);
             if (onNavigate) onNavigate('events');
           }
         }
@@ -484,28 +494,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     };
   }, [activeOperationId, matchResult, onNavigate]);
 
-  // Polling fallback for event status (every 10 seconds)
-  useEffect(() => {
-    if (!activeOperationId) return;
-
-    const pollInterval = setInterval(async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('status')
-        .eq('id', activeOperationId)
-        .single();
-
-      if (error || !data) return;
-
-      if (data.status === 'ended' || data.status === 'cancelled') {
-        localStorage.setItem('lobbyToast', 'OPERATION TERMINATED');
-        localStorage.removeItem('activeOperationId');
-        if (onNavigate) onNavigate('events');
-      }
-    }, 10000);
-
-    return () => clearInterval(pollInterval);
-  }, [activeOperationId, onNavigate]);
 
   // Local fetch to check if user has registered events when in observer mode
   useEffect(() => {
@@ -625,7 +613,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
   // Handle claiming nearby item
   const handleClaimItem = useCallback(async () => {
-    if (!nearbyItem) return;
+    if (!nearbyItem || isClaimingItemRef.current) return;
+    isClaimingItemRef.current = true;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -684,6 +673,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       setTimeout(() => setShowKeyGain(false), 500);
     } catch (err) {
       console.error('Error in handleClaimItem:', err);
+    } finally {
+      isClaimingItemRef.current = false;
     }
   }, [nearbyItem, activeOperationId]);
 
@@ -803,33 +794,21 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         }
       });
 
-      // Listen for inventory updates
+      // Listen for inventory updates (balance/role only)
       socketInstance.on('inventory:update', (inventoryData) => {
-        console.log('Инвентарь обновлен:', inventoryData);
         if (inventoryData) {
-          const items = inventoryData.items;
-          if (Array.isArray(items)) {
-            setInventory(prev => ({
-              items: items,
-              balance: inventoryData.balance ?? prev.balance,
-              role: inventoryData.role ?? prev.role
-            }));
-          } else {
-            console.warn('Blocked invalid map items update from socket (inventory:update):', items);
-            // Only update balance and role, preserve existing items
-            setInventory(prev => ({
-              items: prev.items,
-              balance: inventoryData.balance ?? prev.balance,
-              role: inventoryData.role ?? prev.role
-            }));
-          }
+          setInventory(prev => ({
+            ...prev,
+            balance: inventoryData.balance ?? prev.balance,
+            role: inventoryData.role ?? prev.role,
+          }));
         }
       });
 
       // Listen for anti-cheat flagging
       socketInstance.on('anticheat:flagged', (data) => {
         console.warn('[anticheat] Flagged:', data);
-        setError(`ANTI-CHEAT: SPEED ANOMALY (${data.speed} m/s) — CLAIMS BLOCKED`);
+        setError(`Speed limit exceeded (${data.speed} m/s) — claiming temporarily blocked`);
         setTimeout(() => setError(null), 5000);
       });
 
@@ -933,8 +912,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         setUserLocation({ latitude, longitude, accuracy: accuracy || 5 });
         setGpsAccuracy(accuracy || 5);
         
-        // Send GPS update to server
-        if (socket) {
+        // Send GPS update to server — throttle to once per second
+        const now = Date.now();
+        if (socket && now - lastGpsSentRef.current >= 1000) {
+          lastGpsSentRef.current = now;
           socket.emit('gps:update', { latitude, longitude, accuracy: accuracy || 5 });
         }
 
@@ -945,7 +926,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           vaults.forEach(vault => {
             if (vault.is_active === true) {
               const dist = getDistance(latitude, longitude, vault.lat, vault.lng);
-              console.log('Dist debug:', { userLoc: { latitude, longitude }, vaultLoc: { lat: vault.lat, lng: vault.lng }, dist });
               if (dist < minDistance) {
                 minDistance = dist;
                 nearestId = vault.id;
@@ -1070,6 +1050,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const handleReturnToHq = () => {
     // Clear localStorage
     localStorage.removeItem('activeOperationId');
+    if (activeOperationId) localStorage.removeItem(`keys_spawned_${activeOperationId}`);
 
     // Reset all local states
     setIsDecrypting(false);
@@ -1132,8 +1113,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
           return (
             <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-auto">
-              <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
-                Awaiting Deployment Signal
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-white/50 mb-6">
+                Event starts in
               </div>
               <div
                 key={bigText}
@@ -1148,8 +1129,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               >
                 {bigText}
               </div>
-              <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-                {isFinalCountdown ? 'Stand by' : 'T-Minus'}
+              <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.3em] text-white/40">
+                {isFinalCountdown ? 'Get ready!' : 'Stand by…'}
               </div>
               <style>{`
                 @keyframes countdownPop {
@@ -1171,14 +1152,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center backdrop-blur-2xl bg-black/70 pointer-events-none"
           style={{ opacity: startOverlayOpacity, transition: 'opacity 1500ms ease-out' }}
         >
-          <div className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.4em] text-white/50 mb-6">
-            Awaiting Deployment Signal
+          <div className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.4em] text-white/50 mb-6">
+            Event is live!
           </div>
           <div className="select-none font-black tracking-tighter text-green-400 text-7xl sm:text-9xl drop-shadow-[0_0_40px_rgba(74,222,128,0.6)] animate-pulse">
-            START!
+            GO!
           </div>
-          <div className="mt-8 text-[10px] font-mono uppercase tracking-[0.3em] text-white/40">
-            Connecting to grid…
+          <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.3em] text-white/40">
+            Find the keys on the map
           </div>
         </div>
       )}
@@ -1191,12 +1172,12 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mx-auto">
                 <MapIcon className="w-8 h-8 text-white/40" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">NO ACTIVE UPLINK</h2>
-              <p className="text-sm text-white/60 font-medium">You haven't joined any events. Go to the Lobby to browse operations.</p>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase">No Active Event</h2>
+              <p className="text-sm text-white/60 font-medium">You haven't joined any events yet. Go to Events to browse and join.</p>
             </div>
           ) : (
             <div className="w-full max-w-md space-y-4 max-h-[70vh] overflow-y-auto">
-              <h2 className="text-xl font-black text-white tracking-tighter uppercase text-center mb-4">Your Registered Events</h2>
+              <h2 className="text-xl font-black text-white tracking-tighter uppercase text-center mb-4">Your Upcoming Events</h2>
               {registeredEventsData
                 .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
                 .map((event) => {
@@ -1223,10 +1204,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                           onClick={() => onNavigate?.('hunt', event.id)}
                           className="w-full py-3 bg-green-500 text-white font-black rounded-full hover:brightness-110 active:scale-[0.98] transition-all animate-pulse"
                         >
-                          START EVENT
+                          Join Now
                         </button>
                       ) : (
-                        <p className="text-xs text-white/40 text-center">Deployment opens at T-minus 5m</p>
+                        <p className="text-xs text-white/40 text-center">Opens 5 min before start</p>
                       )}
                     </div>
                   );
@@ -1261,15 +1242,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             className="p-4 flex items-center justify-between border-b border-border-main bg-bg-deep/80 backdrop-blur-md z-20"
           >
             <div className="flex flex-col text-left">
-              <span className="text-[9px] uppercase font-bold tracking-widest text-text-muted">Operation</span>
-              <span className="text-xs font-black text-text-main uppercase tracking-tighter italic">
-                {trackingState === 'OUT_OF_SECTOR' ? 'Approach' : 'Interception'}
+              <span className="text-[9px] uppercase font-bold tracking-widest text-text-muted">Status</span>
+              <span className="text-xs font-black text-text-main uppercase tracking-tighter">
+                {trackingState === 'OUT_OF_SECTOR' ? 'Searching' : trackingState === 'IN_SECTOR' ? 'Getting closer' : 'Vault nearby!'}
               </span>
             </div>
 
-            <div className="flex gap-2">
-                <button onClick={simulateTeleport} className="px-3 py-1.5 bg-white/5 border border-border-main rounded text-[9px] font-black text-text-main uppercase transition-all hover:bg-white/10">Teleport (1001m)</button>
-            </div>
+            <div className="flex gap-2" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -1291,19 +1270,19 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               />
             </div>
             
-            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-white to-green-400 tracking-tighter mb-4 scale-110 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]">COMPLETE.</h2>
+            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-white to-green-400 tracking-tighter mb-4 scale-110 drop-shadow-[0_0_10px_rgba(74,222,128,0.8)]">You Win!</h2>
             {dbError && (
               <div className="bg-red-900/80 border border-red-500 text-red-200 font-mono text-xs p-4 rounded-lg mb-4 max-w-md">
                 {dbError}
               </div>
             )}
-            <p className="text-xs font-mono text-text-muted uppercase tracking-widest mb-12">Asset decrypted and archived</p>
+            <p className="text-sm font-medium text-text-muted mb-12">You found and claimed the prize!</p>
 
             <div className="grid grid-cols-1 gap-4 w-full max-w-xs mb-12">
               <div className="premium-panel p-6 flex flex-col items-center border-accent-orange/30">
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className="w-4 h-4 text-accent-orange" />
-                  <span className="text-[10px] uppercase font-black text-text-muted">Deployment Reward</span>
+                  <span className="text-[10px] uppercase font-black text-text-muted">Your Reward</span>
                 </div>
                 <span className="text-3xl font-black text-green-400 animate-pulse shadow-[0_0_20px_#4ade80]">{vaultLocation?.reward_amount || 0} DOX</span>
               </div>
@@ -1313,7 +1292,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               onClick={handleReturnToHq}
               className="w-full max-w-xs py-5 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 active:scale-95 transition-all text-sm"
             >
-              RETURN TO TERMINAL
+              Back to Events
             </button>
           </motion.div>
         ) : trackingState === 'VAULT_REACHED' && isExtracting ? (
@@ -1342,13 +1321,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                 ) : (
                   <div className="flex flex-col items-center text-center px-4">
                     <Maximize className="w-10 h-10 text-accent-purple/30 mb-6 animate-pulse" />
-                    <span className="text-[10px] font-black text-text-main uppercase tracking-[0.3em]">Align Asset Marker</span>
+                    <span className="text-[10px] font-black text-text-main uppercase tracking-[0.3em]">Point at the vault</span>
                   </div>
                 )}
 
                 {isDecrypting && (
-                  <div className="absolute bottom-6 font-mono text-[10px] text-accent-orange tracking-[0.2em] font-bold">
-                    DECRYPTING: {hexCode}
+                  <div className="absolute bottom-6 text-[10px] text-accent-orange tracking-[0.2em] font-bold">
+                    {decryptionProgress}%
                   </div>
                 )}
               </div>
@@ -1358,14 +1337,14 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               {!isDecrypting ? (
                 <button 
                   onClick={startDecryption}
-                  className="w-full py-6 bg-accent-orange text-white font-black text-xl italic tracking-tighter rounded-xl hover:brightness-110 active:scale-95 transition-all uppercase shadow-lg shadow-accent-orange/20"
+                  className="w-full py-6 bg-accent-orange text-white font-black text-xl tracking-tight rounded-xl hover:brightness-110 active:scale-95 transition-all uppercase shadow-lg shadow-accent-orange/20"
                 >
-                  START EXTRACTION
+                  Claim Reward
                 </button>
               ) : (
                 <div className="space-y-4">
                   <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Processing...</span>
+                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">Verifying...</span>
                     <span className="text-2xl font-black text-text-main italic tracking-tighter">{decryptionProgress}%</span>
                   </div>
                   <div className="w-full h-1 bg-border-main rounded-full overflow-hidden">
@@ -1378,8 +1357,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               )}
             </div>
             
-            <p className="text-[9px] text-text-muted font-mono uppercase text-center max-w-[200px] leading-relaxed opacity-50">
-              Warning: keep device stationary while handshaking with node.
+            <p className="text-[11px] text-text-muted text-center max-w-[200px] leading-relaxed opacity-50">
+              Keep the app open while processing.
             </p>
           </motion.div>
         ) : (
@@ -1412,12 +1391,19 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <LiveRoster eventId={activeOperationId} />
             )}
 
+            {/* Empty state hint when event is live but no keys on map yet */}
+            {eventStatus === 'live' && mapItems.length === 0 && (
+              <div className="absolute bottom-48 left-1/2 -translate-x-1/2 z-20 bg-black/70 backdrop-blur-md rounded-2xl px-5 py-3 text-center pointer-events-none">
+                <p className="text-white/80 text-xs font-semibold">Look around — keys will appear on the map!</p>
+              </div>
+            )}
+
             <div className="absolute top-20 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>KEYS: {collectedKeys} / {requiredKeys}</span>
+                    <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>🔑 {collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
                       <span className="text-red-500 absolute -top-4 right-0 animate-bounce">-{requiredKeys}</span>
                     )}
@@ -1425,7 +1411,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                       <span className="text-green-500 absolute -bottom-6 transition-all duration-500 opacity-100 scale-100 translate-y-0">+1</span>
                     )}
                     {requiredKeys > 0 && collectedKeys >= requiredKeys && (
-                      <span className="text-xs text-green-500 animate-bounce absolute -bottom-4 left-0 w-max">VAULT UNLOCK READY</span>
+                      <span className="text-xs text-green-500 animate-bounce absolute -bottom-4 left-0 w-max">Ready to open vault!</span>
                     )}
                   </div>
                 </div>
@@ -1456,7 +1442,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
             }
           }}
           disabled={collectedKeys < requiredKeys}
-          className={`fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg uppercase tracking-widest transition-all animate-pulse shadow-lg shadow-accent-orange/20 ${
+          className={`fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-2xl py-4 font-bold text-lg uppercase tracking-widest transition-all animate-pulse shadow-lg shadow-accent-orange/20 ${
             collectedKeys >= requiredKeys
               ? 'bg-accent-orange/30 border-2 border-accent-orange text-accent-orange hover:bg-accent-orange/40'
               : 'bg-gray-500/30 border-2 border-gray-500 text-gray-400 cursor-not-allowed'
@@ -1466,15 +1452,22 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         </button>
       )}
 
-      {/* Crypto Key Pickup Button */}
-      {matchResult === 'playing' && nearbyItem && (
-        <button
-          onClick={handleClaimItem}
-          className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 transition-all animate-pulse shadow-lg shadow-purple-600/50"
-        >
-          CLAIM KEY
-        </button>
-      )}
+      {/* Key Pickup Button — animated entrance */}
+      <AnimatePresence>
+        {matchResult === 'playing' && nearbyItem && (
+          <motion.button
+            key="claim-key-btn"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            onClick={handleClaimItem}
+            className="fixed bottom-[140px] left-1/2 transform -translate-x-1/2 z-[999999] w-max min-w-[220px] px-8 rounded-2xl py-4 font-bold text-lg bg-purple-600/90 backdrop-blur-md border-2 border-purple-400 text-white uppercase tracking-widest hover:bg-purple-700/90 active:scale-95 transition-all shadow-lg shadow-purple-600/50"
+          >
+            🔑 Pick up key
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Zoom Controls - Left Bottom - Only show when countdown is finished */}
       {matchResult === 'playing' && mapInstance && activeOperationId && eventStatus !== 'upcoming' && (

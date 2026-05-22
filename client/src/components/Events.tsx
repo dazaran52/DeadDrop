@@ -54,12 +54,22 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [touchStartY, setTouchStartY] = useState(0);
   const [, setNowTick] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [liveCount, setLiveCount] = useState<number>(0);
+  const [totalPrize, setTotalPrize] = useState<number>(0);
 
   // 1s tick for live countdown
   useEffect(() => {
     const id = setInterval(() => setNowTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Update live stats from real events data
+  useEffect(() => {
+    const live = events.filter(e => e.status === 'live').length;
+    const prize = events.reduce((sum, e) => sum + (e.prize_pool || 0), 0);
+    setLiveCount(live);
+    setTotalPrize(prize);
+  }, [events]);
 
   const getDifficulty = (requiredKeys?: number): { label: string; color: string; bg: string } => {
     if (!requiredKeys) return { label: 'N/A', color: 'text-gray-400', bg: 'bg-gray-500/20' };
@@ -76,7 +86,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   };
 
   // Pull-to-Refresh handlers
-  const handleTouchStart = (e: TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     // Only allow pull when at the very top of the page
     if (window.scrollY > 0 || document.documentElement.scrollTop > 0) {
       return;
@@ -85,7 +95,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     setIsPulling(true);
   };
 
-  const handleTouchMove = (e: TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     // Only apply pull if we're pulling down AND still at the top of the page
     if (isPulling && window.scrollY === 0 && document.documentElement.scrollTop === 0) {
       const currentY = e.touches[0].clientY;
@@ -425,7 +435,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
           <Wallet className="w-5 h-5 text-green-500" />
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">YOUR EQUITY</span>
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Balance</span>
           <span className="text-lg font-black text-green-500 tracking-tighter whitespace-nowrap">{balance.toLocaleString()} DOX</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
@@ -433,30 +443,30 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
             <Activity className="w-5 h-5 text-red-500" />
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </div>
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">LIVE RUNNERS</span>
-          <span className="text-lg font-black text-white tracking-tighter">142</span>
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Live Events</span>
+          <span className="text-lg font-black text-white tracking-tighter">{liveCount}</span>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
           <TrendingUp className="w-5 h-5 text-blue-500" />
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">GLOBAL BANK</span>
-          <span className="text-lg font-black text-white tracking-tighter">125K</span>
+          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Total Prizes</span>
+          <span className="text-lg font-black text-white tracking-tighter">{totalPrize > 0 ? `${(totalPrize / 1000).toFixed(0)}K` : '—'} DOX</span>
         </div>
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col space-y-1">
-          <h1 className="text-3xl font-black text-text-main tracking-tighter">ACTIVE DROPS</h1>
-          <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Live Operations</p>
+          <h1 className="text-3xl font-black text-text-main tracking-tighter">Active Events</h1>
+          <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Find & join a game</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLeaderboard(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/15 transition-colors"
-            title="Top Operatives"
+            title="Leaderboard"
           >
             <Trophy className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Top</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Leaders</span>
           </button>
           <button
             onClick={handleRefresh}
@@ -603,7 +613,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                 <div className="flex items-center gap-2">
                   <span className="text-lg">👥</span>
                   <span className="text-sm font-bold text-white">
-                    {event.participants.length} / {event.max_participants} HUNTERS | MIN: {event.min_participants}
+                    {event.participants.length} / {event.max_participants} players
                   </span>
                 </div>
                 <button
