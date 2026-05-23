@@ -364,7 +364,7 @@ io.on('connection', (socket) => {
       // Server-side validation: Fetch event entry_fee directly from database
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .select('id, entry_fee, status')
+        .select('id, entry_fee, status, prize_pool_override')
         .eq('id', eventId)
         .single();
 
@@ -450,6 +450,22 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Auto-recalculate prize_pool: participants × entry_fee × (1 - commission)
+      // Only if event does NOT have a manual override (prize_pool_override flag)
+      const COMMISSION_RATE = parseFloat(process.env.COMMISSION_RATE || '0.10');
+      if (!event.prize_pool_override) {
+        const { count } = await supabase
+          .from('event_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', eventId);
+
+        const newPrize = Math.floor((count || 1) * event.entry_fee * (1 - COMMISSION_RATE));
+        await supabase
+          .from('events')
+          .update({ prize_pool: newPrize })
+          .eq('id', eventId);
+      }
+
       // Send success response
       socket.emit('event:join_response', { success: true });
 
@@ -459,7 +475,7 @@ io.on('connection', (socket) => {
         role: profile.role
       });
 
-      console.log(`[event] Player ${playerId} joined event ${eventId} (fee: ${event.entry_fee} DOX)`);
+      console.log(`[event] Player ${playerId} joined event ${eventId} (fee: ${event.entry_fee} DOX, commission: ${COMMISSION_RATE * 100}%)`);
     } catch (err) {
       console.error('[db] Exception in event:join:', err);
       socket.emit('event:join_response', { success: false, error: 'Internal server error' });

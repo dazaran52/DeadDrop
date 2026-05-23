@@ -43,6 +43,7 @@ interface AdminEvent {
   required_keys: number | null;
   epicenter_lat: number | null;
   epicenter_lng: number | null;
+  prize_pool_override: boolean | null;
 }
 
 export default function AdminPanel({ role }: AdminPanelProps) {
@@ -59,6 +60,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const [maxParticipants, setMaxParticipants] = useState('20');
   const [minParticipants, setMinParticipants] = useState('3');
   const [requiredKeys, setRequiredKeys] = useState('4');
+  const [prizePoolOverride, setPrizePoolOverride] = useState(false);
   const [epicenter, setEpicenter] = useState<{lat: number, lng: number} | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [tempEpicenter, setTempEpicenter] = useState<{lat: number, lng: number} | null>(null);
@@ -135,7 +137,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setLoading(true);
     const { data, error: dbError } = await supabase
       .from('events')
-      .select('id, title, prize_pool, entry_fee, start_time, status, min_participants, max_participants, required_keys, epicenter_lat, epicenter_lng')
+      .select('id, title, prize_pool, prize_pool_override, entry_fee, start_time, status, min_participants, max_participants, required_keys, epicenter_lat, epicenter_lng')
       .in('status', ['live', 'upcoming'])
       .order('start_time', { ascending: true });
 
@@ -181,6 +183,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   const resetForm = () => {
     setTitle('');
     setPrizePool('');
+    setPrizePoolOverride(false);
     setEntryFee('');
     setStartTime('');
     setMaxParticipants('20');
@@ -194,6 +197,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
     setEditingId(ev.id);
     setTitle(ev.title);
     setPrizePool(String(ev.prize_pool));
+    setPrizePoolOverride(!!ev.prize_pool_override);
     setEntryFee(String(ev.entry_fee));
     setStartTime(isoToDatetimeLocal(ev.start_time));
     setMaxParticipants(String(ev.max_participants ?? 20));
@@ -248,7 +252,8 @@ export default function AdminPanel({ role }: AdminPanelProps) {
 
     const payload = {
       title: title.trim(),
-      prize_pool: prize,
+      prize_pool: prizePoolOverride ? prize : 0,
+      prize_pool_override: prizePoolOverride,
       entry_fee: fee,
       start_time: new Date(startTime).toISOString(),
       max_participants: maxP,
@@ -418,13 +423,28 @@ export default function AdminPanel({ role }: AdminPanelProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">REWARD POOL (DOX)</label>
-              <input
-                type="number"
-                value={prizePool}
-                onChange={(e) => setPrizePool(e.target.value)}
-                placeholder="10000"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
-              />
+              <div className="flex items-center gap-2 mb-1.5">
+                <input
+                  type="checkbox"
+                  checked={prizePoolOverride}
+                  onChange={(e) => setPrizePoolOverride(e.target.checked)}
+                  className="accent-green-500"
+                />
+                <span className="text-[9px] text-white/50">Manual override</span>
+              </div>
+              {prizePoolOverride ? (
+                <input
+                  type="number"
+                  value={prizePool}
+                  onChange={(e) => setPrizePool(e.target.value)}
+                  placeholder="10000"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                />
+              ) : (
+                <div className="w-full bg-black/20 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-white/40">
+                  Auto: players × fee × 0.9
+                </div>
+              )}
             </div>
             <div>
               <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Entry Fee (DOX)</label>

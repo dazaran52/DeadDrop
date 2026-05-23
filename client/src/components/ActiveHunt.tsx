@@ -63,6 +63,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ balance: null as number | null, role: 'user' });
   const [showHint, setShowHint] = useState(false);
+  const [nearestKeyBearing, setNearestKeyBearing] = useState<number | null>(null);
+  const [nearestKeyDist, setNearestKeyDist] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -586,6 +588,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     if (items && items.length > 0) {
       let nearest = null;
       let minDistance = Infinity;
+      let globalNearest: any = null;
+      let globalMinDist = Infinity;
 
       items.forEach((item: any) => {
         const dist = getDistance(
@@ -594,15 +598,38 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           Number(item.lat),
           Number(item.lng)
         );
+        // For claim button (within 25m)
         if (dist < minDistance && dist < 25) {
           minDistance = dist;
           nearest = item;
         }
+        // For compass (any distance)
+        if (dist < globalMinDist) {
+          globalMinDist = dist;
+          globalNearest = item;
+        }
       });
 
       setNearbyItem(nearest);
+
+      // Compute bearing for compass
+      if (globalNearest && userLocation.latitude !== 0) {
+        const lat1 = userLocation.latitude * Math.PI / 180;
+        const lat2 = Number(globalNearest.lat) * Math.PI / 180;
+        const dLng = (Number(globalNearest.lng) - userLocation.longitude) * Math.PI / 180;
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        setNearestKeyBearing(bearing);
+        setNearestKeyDist(Math.round(globalMinDist));
+      } else {
+        setNearestKeyBearing(null);
+        setNearestKeyDist(null);
+      }
     } else {
       setNearbyItem(null);
+      setNearestKeyBearing(null);
+      setNearestKeyDist(null);
     }
   }, [userLocation, mapItems]);
 
@@ -659,7 +686,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       if (!data || data.length === 0) {
         removeMapItem(nearbyItem.id);
         setNearbyItem(null);
-        setError('TOO LATE. ITEM ALREADY CLAIMED');
+        setError('Someone grabbed it first!');
         setTimeout(() => setError(null), 3000);
         return;
       }
@@ -687,8 +714,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       removeMapItem(nearbyItem.id);
       setNearbyItem(null);
       setCollectedKeys(currentKeys + 1);
-      setClaimOverlay('KEY SECURED');
+      setClaimOverlay('Key collected!');
       setShowKeyGain(true);
+      playKeyTing();
+      if (navigator.vibrate) navigator.vibrate(80);
       setTimeout(() => setClaimOverlay(null), 2500);
       setTimeout(() => setShowKeyGain(false), 500);
     } catch (err) {
@@ -697,6 +726,37 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       isClaimingItemRef.current = false;
     }
   }, [nearbyItem, activeOperationId]);
+
+  // Short "ting" sound for key pickup
+  const playKeyTing = useCallback(() => {
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1200;
+      gain.gain.value = 0.0001;
+      osc.connect(gain).connect(ctx.destination);
+      const now = ctx.currentTime;
+      gain.gain.exponentialRampToValueAtTime(0.3, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.3);
+      // Second harmonic for metallic "ting"
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.value = 2400;
+      gain2.gain.value = 0.0001;
+      osc2.connect(gain2).connect(ctx.destination);
+      gain2.gain.exponentialRampToValueAtTime(0.15, now + 0.02);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      osc2.start(now);
+      osc2.stop(now + 0.25);
+    } catch (e) { /* silence */ }
+  }, []);
 
   // Audio toggle handler
   const toggleAudio = useCallback(() => {
@@ -1498,6 +1558,23 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Compass arrow to nearest key */}
+      {matchResult === 'playing' && !isExtracting && nearestKeyBearing !== null && nearestKeyDist !== null && nearestKeyDist > 25 && eventStatus !== 'upcoming' && (
+        <div className="fixed bottom-[220px] left-4 z-[999999] flex flex-col items-center gap-1">
+          <div
+            className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md border border-purple-400/50 flex items-center justify-center shadow-lg"
+          >
+            <svg
+              width="28" height="28" viewBox="0 0 28 28"
+              style={{ transform: `rotate(${nearestKeyBearing}deg)`, transition: 'transform 0.3s ease-out' }}
+            >
+              <polygon points="14,2 20,22 14,17 8,22" fill="rgba(168,85,247,0.9)" stroke="rgba(168,85,247,1)" strokeWidth="1" />
+            </svg>
+          </div>
+          <span className="text-[9px] font-bold text-white/70 tabular-nums">{nearestKeyDist}m</span>
+        </div>
+      )}
 
       {/* Zoom Controls - Left Bottom - Only show when countdown is finished */}
       {matchResult === 'playing' && mapInstance && activeOperationId && eventStatus !== 'upcoming' && (

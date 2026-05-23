@@ -69,14 +69,14 @@ export default function LiveRoster({ eventId }: LiveRosterProps) {
   }, [eventId]);
 
   return (
-    <div className="absolute top-44 right-3 z-30 w-56 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+    <div className="absolute top-44 right-3 z-10 w-40 bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-xl">
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-white/5 transition-colors"
       >
         <div className="flex items-center gap-2">
           <Users className="w-3.5 h-3.5 text-green-400" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-white/80">Live Roster</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Players</span>
           {!loading && (
             <span className="text-[9px] text-white/40">{roster.length}</span>
           )}
@@ -85,14 +85,14 @@ export default function LiveRoster({ eventId }: LiveRosterProps) {
       </button>
 
       {!collapsed && (
-        <div className="border-t border-white/10 max-h-48 overflow-y-auto custom-scrollbar">
+        <div className="border-t border-white/10 max-h-36 overflow-y-auto custom-scrollbar">
           {loading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 text-white/40 animate-spin" />
             </div>
           ) : roster.length === 0 ? (
             <div className="px-3 py-3 text-[10px] text-white/40 tracking-wider uppercase text-center">
-              No operatives
+              No players
             </div>
           ) : (
             <ul className="divide-y divide-white/5">
@@ -104,11 +104,11 @@ export default function LiveRoster({ eventId }: LiveRosterProps) {
                     className={`flex items-center justify-between px-3 py-2 ${isMe ? 'bg-green-500/10' : ''}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-[9px] font-mono w-4 ${i === 0 ? 'text-yellow-400' : 'text-white/40'}`}>
+                      <span className={`text-[9px] font-bold w-4 ${i === 0 ? 'text-yellow-400' : 'text-white/40'}`}>
                         {i + 1}
                       </span>
                       <span
-                        className={`text-[11px] font-mono truncate ${isMe ? 'text-green-300' : 'text-white/80'}`}
+                        className={`text-[10px] font-semibold truncate max-w-[70px] ${isMe ? 'text-green-300' : 'text-white/70'}`}
                         style={{ textTransform: 'none' }}
                       >
                         {entry.username || '—'}
@@ -116,7 +116,7 @@ export default function LiveRoster({ eventId }: LiveRosterProps) {
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <Key className="w-3 h-3 text-yellow-400" />
-                      <span className="text-[11px] font-mono text-white tabular-nums">{entry.keys_balance}</span>
+                      <span className="text-[10px] font-bold text-white tabular-nums">{entry.keys_balance}</span>
                     </div>
                   </li>
                 );
