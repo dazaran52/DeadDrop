@@ -62,6 +62,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const startOverlayFiredRef = useRef<boolean>(false);
   const [vaults, setVaults] = useState<any[]>([]);
   const [inventory, setInventory] = useState({ balance: null as number | null, role: 'user' });
+  const [showHint, setShowHint] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lootAnimations, setLootAnimations] = useState<any[]>([]);
   const [rewards, setRewards] = useState<{id: string, amount: number, lat: number, lng: number}[]>([]);
@@ -206,17 +207,36 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
   }, [eventStatus, eventStartTime, nowTick]);
 
-  // Refresh map items when event goes live (keys just spawned)
+  // Show hint when event goes live, auto-hide after 12s
+  useEffect(() => {
+    if (eventStatus === 'live') {
+      const showTimer = setTimeout(() => setShowHint(true), 2500);
+      const hideTimer = setTimeout(() => setShowHint(false), 14500);
+      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
+    } else {
+      setShowHint(false);
+    }
+  }, [eventStatus]);
+
+  // Refresh map items when event goes live (wait for auto-spawn to finish)
   useEffect(() => {
     if (eventStatus === 'live' && activeOperationId) {
-      supabase
-        .from('event_items')
-        .select('*')
-        .eq('event_id', activeOperationId)
-        .eq('is_claimed', false)
-        .then(({ data }) => {
-          if (data && data.length > 0) setMapItems(data);
-        });
+      // Retry fetching keys with delay to let auto-spawn insert complete
+      const fetchWithRetry = async (attempts = 3) => {
+        for (let i = 0; i < attempts; i++) {
+          await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+          const { data } = await supabase
+            .from('event_items')
+            .select('*')
+            .eq('event_id', activeOperationId)
+            .eq('is_claimed', false);
+          if (data && data.length > 0) {
+            setMapItems(data);
+            return;
+          }
+        }
+      };
+      fetchWithRetry();
     }
   }, [eventStatus, activeOperationId, setMapItems]);
 
@@ -1391,19 +1411,13 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <LiveRoster eventId={activeOperationId} />
             )}
 
-            {/* Empty state hint when event is live but no keys on map yet */}
-            {eventStatus === 'live' && mapItems.length === 0 && (
-              <div className="absolute bottom-48 left-1/2 -translate-x-1/2 z-20 bg-black/70 backdrop-blur-md rounded-2xl px-5 py-3 text-center pointer-events-none">
-                <p className="text-white/80 text-xs font-semibold">Look around — keys will appear on the map!</p>
-              </div>
-            )}
 
             <div className="absolute top-20 left-4 right-4 z-20">
               <div className="bg-black/40 backdrop-blur-md rounded-full px-6 py-3 flex items-center justify-between shadow-2xl">
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 relative">
                     <Key className="w-5 h-5 text-white/70" />
-                    <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>🔑 {collectedKeys} / {requiredKeys}</span>
+                    <span className={`text-2xl font-black ${requiredKeys > 0 && collectedKeys >= requiredKeys ? 'text-green-400 animate-pulse' : 'text-white'}`}>{collectedKeys} / {requiredKeys}</span>
                     {showKeySpend && (
                       <span className="text-red-500 absolute -top-4 right-0 animate-bounce">-{requiredKeys}</span>
                     )}
@@ -1428,6 +1442,22 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
                   </div>
                 </div>
               </div>
+              {/* Animated hint below floating panel */}
+              <AnimatePresence>
+                {showHint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4 }}
+                    className="mt-3 bg-purple-600/80 backdrop-blur-md rounded-full px-5 py-2 text-center shadow-lg"
+                  >
+                    <p className="text-white text-xs font-bold animate-pulse">
+                      📍 Keys are on the map — explore the area!
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         )}

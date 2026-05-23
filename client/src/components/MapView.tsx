@@ -42,6 +42,16 @@ style.textContent = `
       transform: translateY(-60px) scale(1.2);
     }
   }
+  @keyframes keyRipple {
+    0% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
 `;
 document.head.appendChild(style);
 
@@ -170,28 +180,33 @@ export default function MapView({ userPos, accuracy, theme, vaults = [], lootAni
           />
         ))}
 
-        {/* Key Items */}
+        {/* Key Items with ripple wave */}
         {(items || []).map((item) => (
           <Marker
             key={item.id}
             position={[Number(item.lat), Number(item.lng)]}
             icon={L.divIcon({
               className: 'custom-key-icon',
-              html: `<div style="
-                width: 32px;
-                height: 32px;
-                background: rgba(168, 85, 247, 0.2);
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border: 1px solid rgba(168, 85, 247, 1);
-                box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
-                animation: pulse 2s ease-in-out infinite;
-              ">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(168, 85, 247, 1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
-                </svg>
+              html: `<div style="position:relative;width:32px;height:32px;">
+                <div style="
+                  position:absolute;inset:0;
+                  border-radius:50%;
+                  border:2px solid rgba(168,85,247,0.5);
+                  animation: keyRipple 2s ease-out infinite;
+                "></div>
+                <div style="
+                  width:32px;height:32px;
+                  background:rgba(168,85,247,0.2);
+                  border-radius:50%;
+                  display:flex;align-items:center;justify-content:center;
+                  border:1px solid rgba(168,85,247,1);
+                  box-shadow:0 0 15px rgba(168,85,247,0.5);
+                  position:relative;z-index:1;
+                ">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(168,85,247,1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                  </svg>
+                </div>
               </div>`,
               iconSize: [32, 32],
               iconAnchor: [16, 16]
