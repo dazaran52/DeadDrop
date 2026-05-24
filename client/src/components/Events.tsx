@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, TrendingUp, Target, X, Wallet, Activity, User, RefreshCw, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -16,6 +16,7 @@ interface EventsProps {
   activeOperationId?: string | null;
   onNavigate?: (view: string, operationId?: string) => void;
   onRegisteredEventsChange?: (events: Array<{ id: string; start_time: string }>) => void;
+  theme?: 'dark' | 'light';
 }
 
 interface Participant {
@@ -35,7 +36,9 @@ interface Event {
   required_keys?: number;
 }
 
-export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange }: EventsProps) {
+export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange, theme = 'dark' }: EventsProps) {
+  const isDark = theme === 'dark';
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [events, setEvents] = useState<Event[]>([]);
@@ -52,6 +55,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState(0);
+  const pullYRef = useRef(0);
   const [, setNowTick] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [liveCount, setLiveCount] = useState<number>(0);
@@ -85,42 +89,48 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Pull-to-Refresh handlers
+  // iOS requires a native non-passive touchmove listener to call preventDefault
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (el.scrollTop > 0) return;
+      if (pullYRef.current > 10) e.preventDefault();
+    };
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  }, []);
+
+  // Pull-to-Refresh handlers — attached to scroll container
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Only allow pull when at the very top of the page
-    if (window.scrollY > 0 || document.documentElement.scrollTop > 0) {
-      return;
-    }
+    const el = scrollRef.current;
+    if (!el || el.scrollTop > 0) return;
     setTouchStartY(e.touches[0].clientY);
     setIsPulling(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Only apply pull if we're pulling down AND still at the top of the page
-    if (isPulling && window.scrollY === 0 && document.documentElement.scrollTop === 0) {
-      const currentY = e.touches[0].clientY;
-      const diff = currentY - touchStartY;
-      // Only pull if moving down (positive diff) and beyond threshold
-      if (diff > 10) {
-        // Apply resistance and limit max pull
-        const pullDistance = Math.min((diff - 10) * 0.15, 100);
-        setPullY(pullDistance);
-      } else {
-        // If not past threshold, cancel the pull
-        setIsPulling(false);
-        setPullY(0);
-      }
-    } else {
-      setIsPulling(false);
-      setPullY(0);
+    const el = scrollRef.current;
+    if (!isPulling || !el || el.scrollTop > 0) {
+      if (pullY > 0) setPullY(0);
+      return;
     }
+    const diff = e.touches[0].clientY - touchStartY;
+    if (diff <= 0) {
+      if (pullY > 0) setPullY(0);
+      return;
+    }
+    // smooth resistance curve
+    const d = Math.min(diff * 0.4, 80);
+    setPullY(d);
+    pullYRef.current = d;
+    if (d > 10) e.preventDefault();
   };
 
   const handleTouchEnd = () => {
-    if (pullY > 50) {
-      handleRefresh();
-    }
+    if (pullYRef.current > 45) handleRefresh();
     setPullY(0);
+    pullYRef.current = 0;
     setIsPulling(false);
     setTouchStartY(0);
   };
@@ -392,7 +402,13 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 bg-bg-deep relative">
+    <div
+      ref={scrollRef}
+      className={`flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 relative ${isDark ? 'bg-bg-deep' : 'bg-[#F2F2F7]'}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Toast Message */}
       <AnimatePresence>
         {toastMessage && (
@@ -407,8 +423,18 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         )}
       </AnimatePresence>
 
+      {/* Pull-to-refresh indicator — above filter tabs */}
+      <div
+        className="overflow-hidden transition-all duration-200 ease-out"
+        style={{ height: pullY > 0 ? Math.max(pullY - 10, 0) : 0 }}
+      >
+        <div className="flex justify-center items-center" style={{ opacity: Math.min(pullY / 45, 1) }}>
+          <RefreshCw className={`w-5 h-5 ${isDark ? 'text-white/50' : 'text-gray-400'} ${pullY > 45 || isRefreshing ? 'animate-spin' : ''}`} />
+        </div>
+      </div>
+
       {/* Filter Tabs */}
-      <div className="flex gap-2 bg-white/5 rounded-xl p-1">
+      <div className={`flex gap-2 rounded-xl p-1 ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
         {[
           { key: 'time' as const, label: 'TIME' },
           { key: 'entry' as const, label: 'ENTRY' },
@@ -420,7 +446,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
             className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
               filter === tab.key
                 ? 'bg-accent-orange text-white'
-                : 'text-white/40 hover:text-white/60'
+                : isDark ? 'text-white/40 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             {tab.label}
@@ -433,31 +459,31 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
 
       {/* Hero Section - Statistics */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+        <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center space-y-2 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-black/10 shadow-sm'}`}>
           <Wallet className="w-5 h-5 text-green-500" />
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Balance</span>
+          <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>Balance</span>
           <span className="text-lg font-black text-green-500 tracking-tighter whitespace-nowrap">{balance.toLocaleString()} DOX</span>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+        <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center space-y-2 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-black/10 shadow-sm'}`}>
           <div className="relative">
             <Activity className="w-5 h-5 text-red-500" />
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </div>
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Live Events</span>
-          <span className="text-lg font-black text-white tracking-tighter">{liveCount}</span>
+          <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>Live Events</span>
+          <span className={`text-lg font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{liveCount}</span>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center space-y-2">
+        <div className={`border rounded-2xl p-4 flex flex-col items-center justify-center space-y-2 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-black/10 shadow-sm'}`}>
           <TrendingUp className="w-5 h-5 text-blue-500" />
-          <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">Total Prizes</span>
-          <span className="text-lg font-black text-white tracking-tighter">{totalPrize > 0 ? `${(totalPrize / 1000).toFixed(0)}K` : '—'} DOX</span>
+          <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>Total Prizes</span>
+          <span className={`text-lg font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{totalPrize > 0 ? `${(totalPrize / 1000).toFixed(0)}K` : '—'} DOX</span>
         </div>
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col space-y-1">
-          <h1 className="text-3xl font-black text-text-main tracking-tighter">Active Events</h1>
-          <p className="text-xs font-medium text-text-muted uppercase tracking-widest">Find & join a game</p>
+          <h1 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-text-main' : 'text-gray-900'}`}>Active Events</h1>
+          <p className={`text-xs font-medium uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>Find & join a game</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -471,9 +497,9 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            className={`p-2 rounded-full transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'}`}
           >
-            <RefreshCw className={`w-5 h-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-700'} ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -502,19 +528,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           </div>
         </div>
       ) : (
-        <div
-          className="space-y-6 transition-transform duration-300 ease-out"
-          style={{ transform: pullY > 0 ? `translateY(${pullY}px)` : 'translateY(0)' }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Pull indicator */}
-          {pullY > 20 && (
-            <div className="flex justify-center py-4 transition-all duration-300 ease-out opacity-0 scale-90" style={{ opacity: Math.min((pullY - 20) / 30, 1), transform: `scale(${Math.min((pullY - 20) / 30 + 0.9, 1)})` }}>
-              <RefreshCw className={`w-6 h-6 text-white/50 ${pullY > 50 ? 'animate-spin' : ''}`} />
-            </div>
-          )}
+        <div className="space-y-6">
 
           {getSortedEvents().map((event, index) => (
             <motion.div
@@ -522,7 +536,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-[#1C1C1E] rounded-[2.5rem] p-6 shadow-2xl space-y-6"
+              className={`rounded-[2.5rem] p-6 shadow-md space-y-6 ${isDark ? 'bg-[#1C1C1E] shadow-black/50' : 'bg-white border border-black/[0.07] shadow-black/5'}`}
             >
               {/* Badge */}
               <div className="flex items-center justify-between">
@@ -577,16 +591,16 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   </span>
                 </div>
               )}
-              <h2 className="text-2xl font-black text-white tracking-tight leading-none">
+              <h2 className={`text-2xl font-black tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {event.title}
               </h2>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black/20 rounded-2xl p-4 space-y-2">
+                <div className={`rounded-2xl p-4 space-y-2 ${isDark ? 'bg-black/20' : 'bg-gray-50 border border-black/[0.06]'}`}>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-green-500" />
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">
+                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>
                       REWARD POOL
                     </span>
                   </div>
@@ -595,24 +609,24 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   </span>
                 </div>
 
-                <div className="bg-black/20 rounded-2xl p-4 space-y-2">
+                <div className={`rounded-2xl p-4 space-y-2 ${isDark ? 'bg-black/20' : 'bg-gray-50 border border-black/[0.06]'}`}>
                   <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-text-muted" />
-                    <span className="text-[8px] font-bold text-text-muted uppercase tracking-widest">
+                    <Target className={`w-4 h-4 ${isDark ? 'text-text-muted' : 'text-gray-400'}`} />
+                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? 'text-text-muted' : 'text-gray-500'}`}>
                       ENTRY
                     </span>
                   </div>
-                  <span className="text-2xl font-black text-white tracking-tighter">
+                  <span className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {event.entry_fee.toLocaleString()} DOX
                   </span>
                 </div>
               </div>
 
               {/* FOMO Counter */}
-              <div className="flex items-center justify-between bg-black/20 rounded-2xl p-4">
+              <div className={`flex items-center justify-between rounded-2xl p-4 ${isDark ? 'bg-black/20' : 'bg-gray-50 border border-black/[0.06]'}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-lg">👥</span>
-                  <span className="text-sm font-bold text-white">
+                  <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {event.participants.length} / {event.max_participants} players
                   </span>
                 </div>

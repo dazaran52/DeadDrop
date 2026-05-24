@@ -234,6 +234,7 @@ export default function App() {
           setView(view as any);
         }}
         onRegisteredEventsChange={setRegisteredEvents}
+        theme={theme}
       />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
@@ -245,7 +246,7 @@ export default function App() {
           setActiveOperationId(operationId);
         }
         setView(view as any);
-      }} onRegisteredEventsChange={setRegisteredEvents} />;
+      }} onRegisteredEventsChange={setRegisteredEvents} theme={theme} />;
     }
   };
 
