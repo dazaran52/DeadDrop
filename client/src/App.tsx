@@ -239,7 +239,7 @@ export default function App() {
         supabase.auth.signOut();
         setIsLoggedIn(false);
       }} balance={balance} username={username} userId={userId} avatarUrl={avatarUrl} onUsernameChange={setUsername} onAvatarChange={setAvatarUrl} theme={theme} onThemeChange={setTheme} />;
-      case 'admin': return <AdminPanel role={role} />;
+      case 'admin': return <AdminPanel role={role} theme={theme} />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {
           setActiveOperationId(operationId);
@@ -250,8 +250,8 @@ export default function App() {
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#0A0A0A] text-white font-sans">
-      <div className="relative w-full h-full lg:w-[400px] lg:h-full lg:mx-auto bg-[#0A0A0A] lg:rounded-[48px] border-none lg:border-[8px] lg:border-[#1a1a1a] lg:shadow-[0_40px_100px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
+    <div className={`fixed inset-0 w-full h-full overflow-hidden font-sans ${theme === 'dark' ? 'bg-[#0A0A0A] text-white' : 'bg-[#F2F2F7] text-gray-900'}`}>
+      <div className={`relative w-full h-full lg:w-[400px] lg:h-full lg:mx-auto lg:rounded-[48px] border-none lg:border-[8px] lg:shadow-[0_40px_100px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-[#0A0A0A] lg:border-[#1a1a1a]' : 'bg-[#F2F2F7] lg:border-[#e0e0e0]'}`}>
         
         {/* Notch Simulation */}
         <div className="hidden lg:flex absolute top-0 w-full justify-center items-start z-[60] pt-2">
@@ -262,9 +262,9 @@ export default function App() {
           {/* Reconnecting Badge */}
 
           {view !== 'hunt' && (
-            <header className="px-6 flex justify-between items-end border-b border-white/10 pb-4 mb-2">
+            <header className={`px-6 flex justify-between items-end pb-4 mb-2 border-b ${theme === 'dark' ? 'border-white/10' : 'border-black/10'}`}>
               <div className="flex flex-col">
-                <span className="text-2xl font-black uppercase tracking-tighter text-white">
+                <span className={`text-2xl font-black uppercase tracking-tighter ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                   {view === 'events' ? 'Events' : view === 'profile' ? 'Profile' : view === 'admin' ? 'Admin' : 'Events'}
                 </span>
               </div>
@@ -278,21 +278,21 @@ export default function App() {
           </main>
 
           {/* Global Floating Pill Navigation - Always Visible */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl flex justify-between items-center px-6 py-3 z-[9999]">
-            <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-all ${view === 'events' ? 'opacity-100 text-accent-orange scale-105' : 'opacity-40'}`}>
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-sm rounded-full backdrop-blur-xl border shadow-2xl flex justify-between items-center px-6 py-3 z-[9999] ${theme === 'dark' ? 'bg-white/10 border-white/10' : 'bg-white/80 border-black/10'}`}>
+            <button onClick={() => setView('events')} className={`flex flex-col items-center gap-1 transition-all ${view === 'events' ? 'opacity-100 text-accent-orange scale-105' : theme === 'dark' ? 'opacity-40' : 'opacity-40 text-gray-500'}`}>
               <Trophy size={22} strokeWidth={view === 'events' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Events</span>
             </button>
-            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-all ${view === 'hunt' ? 'opacity-100 text-blue-400 scale-105' : 'opacity-40'}`}>
+            <button onClick={() => setView('hunt')} className={`flex flex-col items-center gap-1 transition-all ${view === 'hunt' ? 'opacity-100 text-blue-500 scale-105' : theme === 'dark' ? 'opacity-40' : 'opacity-40 text-gray-500'}`}>
               <MapIcon size={24} strokeWidth={view === 'hunt' ? 3 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Map</span>
             </button>
-            <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-all ${view === 'profile' ? 'opacity-100 text-blue-400 scale-105' : 'opacity-40'}`}>
+            <button onClick={() => setView('profile')} className={`flex flex-col items-center gap-1 transition-all ${view === 'profile' ? 'opacity-100 text-blue-500 scale-105' : theme === 'dark' ? 'opacity-40' : 'opacity-40 text-gray-500'}`}>
               <User size={22} strokeWidth={view === 'profile' ? 2.5 : 2} />
               <span className="text-[9px] font-bold uppercase tracking-wider">Profile</span>
             </button>
             {isSuperUser && (
-              <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-all ${view === 'admin' ? 'opacity-100 text-red-400 scale-105' : 'opacity-40'}`}>
+              <button onClick={() => setView('admin')} className={`flex flex-col items-center gap-1 transition-all ${view === 'admin' ? 'opacity-100 text-red-400 scale-105' : theme === 'dark' ? 'opacity-40' : 'opacity-40 text-gray-500'}`}>
                 <Shield size={22} strokeWidth={view === 'admin' ? 2.5 : 2} />
                 <span className="text-[9px] font-bold uppercase tracking-wider">Admin</span>
               </button>

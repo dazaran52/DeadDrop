@@ -75,12 +75,12 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
     setError(null);
 
     if (!ALIAS_REGEX.test(alias) || alias.length < MIN_LEN || alias.length > MAX_LEN) {
-      setError(`ALIAS MUST BE ${MIN_LEN}-${MAX_LEN} CHARS, [a-z0-9_] ONLY`);
+      setError(`Username must be ${MIN_LEN}-${MAX_LEN} chars, [a-z0-9_] only`);
       return;
     }
 
     if (availability === 'taken') {
-      setError('ALIAS ALREADY COMPROMISED');
+      setError('Username already taken');
       return;
     }
 
@@ -97,10 +97,10 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
 
         // Postgres unique_violation
         if (updateError.code === '23505') {
-          setToast('SYSTEM ERROR: ALIAS INTERCEPTED BY ANOTHER USER');
+          setToast('Username taken by another user');
           setAvailability('taken');
         } else {
-          setError(`DB ERROR: ${updateError.message} (${updateError.code})`);
+          setError(`Error: ${updateError.message}`);
         }
         setSubmitting(false);
         return;
@@ -109,8 +109,8 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
       setSubmitting(false);
       onComplete(alias);
     } catch (err: any) {
-      console.error('Unexpected error during alias commit:', err);
-      setToast(`SYSTEM ERROR: ${err?.message || 'UNKNOWN'}`);
+      console.error('Unexpected error during username save:', err);
+      setToast(`Error: ${err?.message || 'Unknown error'}`);
       setSubmitting(false);
     }
   };
@@ -131,13 +131,13 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
             <User className="w-5 h-5 text-accent-orange" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Choose Your Alias</h1>
-            <p className="text-xs text-white/40">This will be your callsign</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">Choose Your Username</h1>
+            <p className="text-xs text-white/40">This will be your display name</p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <label className="text-[10px] text-white/50 uppercase tracking-wider font-medium">Alias</label>
+          <label className="text-[10px] text-white/50 uppercase tracking-wider font-medium">Username</label>
           <div className={`flex items-center gap-3 bg-black/40 border rounded-xl px-4 py-3.5 transition-all ${
             isTaken
               ? 'border-red-500/50'
@@ -150,7 +150,7 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
               value={alias}
               onChange={(e) => setAlias(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
               maxLength={MAX_LEN}
-              placeholder="your_alias"
+              placeholder="your_username"
               className={`flex-1 bg-transparent outline-none text-white text-lg tracking-wide placeholder:text-white/20 ${
                 isTaken ? 'text-red-400' : 'text-white'
               }`}
@@ -163,11 +163,11 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
           {/* Status line */}
           {availability === 'taken' ? (
             <p className="text-[11px] text-red-400 font-medium">
-              This alias is already taken
+              This username is already taken
             </p>
           ) : availability === 'available' ? (
             <p className="text-[11px] text-green-400 font-medium">
-              Alias is available
+              Username is available
             </p>
           ) : availability === 'invalid' && alias.length > 0 ? (
             <p className="text-[11px] text-yellow-400/80">
@@ -197,7 +197,7 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
               <span>Saving...</span>
             </>
           ) : (
-            <span>Confirm Alias</span>
+            <span>Confirm Username</span>
           )}
         </button>
       </form>

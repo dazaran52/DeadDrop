@@ -806,7 +806,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               >
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h2 className="text-xl font-black text-white tracking-tight">REGISTERED OPERATIVES</h2>
+                    <h2 className="text-xl font-black text-white tracking-tight">REGISTERED PLAYERS</h2>
                     <p className="text-sm text-text-muted mt-1">
                       {event.participants.length} / {event.max_participants}
                     </p>
@@ -822,7 +822,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                 <div className="space-y-3 max-h-64 overflow-y-auto pb-8">
                   {event.participants.length === 0 ? (
                     <div className="text-center py-8 text-text-muted text-sm">
-                      No operatives registered yet
+                      No players registered yet
                     </div>
                   ) : (
                     event.participants.map((participant) => {

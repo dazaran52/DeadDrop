@@ -13,14 +13,14 @@ interface LeaderboardProps {
   currentUserId?: string | null;
 }
 
-interface Operative {
+interface Player {
   id: string;
   username: string | null;
   balance: number;
 }
 
 export default function Leaderboard({ open, onClose, currentUserId }: LeaderboardProps) {
-  const [rows, setRows] = useState<Operative[]>([]);
+  const [rows, setRows] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +44,7 @@ export default function Leaderboard({ open, onClose, currentUserId }: Leaderboar
         return;
       }
 
-      setRows((data as Operative[]) || []);
+      setRows((data as Player[]) || []);
       setLoading(false);
     };
 
@@ -79,8 +79,8 @@ export default function Leaderboard({ open, onClose, currentUserId }: Leaderboar
               <Trophy className="w-4 h-4 text-yellow-300" />
             </div>
             <div>
-              <h2 className="text-base font-light text-white tracking-tight">Top Operatives</h2>
-              <p className="text-[10px] text-white/40 tracking-[0.2em] uppercase">Global Equity Ranking</p>
+              <h2 className="text-base font-light text-white tracking-tight">Top Players</h2>
+              <p className="text-[10px] text-white/40 tracking-[0.2em] uppercase">Global Balance Ranking</p>
             </div>
           </div>
           <button
@@ -102,7 +102,7 @@ export default function Leaderboard({ open, onClose, currentUserId }: Leaderboar
             </div>
           ) : rows.length === 0 ? (
             <div className="text-center text-xs text-white/40 tracking-wider py-10 uppercase">
-              No operatives ranked yet
+              No players ranked yet
             </div>
           ) : (
             <ul className="space-y-2">

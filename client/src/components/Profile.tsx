@@ -160,7 +160,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
   const saveEdit = async () => {
     if (!userId) return;
     if (availability !== 'available') {
-      setToast({ kind: 'err', msg: 'Alias unavailable' });
+      setToast({ kind: 'err', msg: 'Username unavailable' });
       return;
     }
 
@@ -184,7 +184,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
       if (updErr) {
         console.error('Update profile error:', updErr);
         if (updErr.code === '23505') {
-          setToast({ kind: 'err', msg: 'ALIAS INTERCEPTED BY ANOTHER USER' });
+          setToast({ kind: 'err', msg: 'Username taken by another user' });
           setAvailability('taken');
         } else {
           setToast({ kind: 'err', msg: `${updErr.message} (${updErr.code})` });
@@ -337,10 +337,10 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
       </div>
 
       {/* Log Out */}
-      <div className={`${cardBg} border ${cardBorder} rounded-2xl overflow-hidden`}>
+      <div className="flex justify-center pt-2">
         <button
           onClick={onLogout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-red-500 text-sm font-medium transition-colors hover:bg-red-500/5 active:bg-red-500/10"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-500/10 text-red-500 text-sm font-medium transition-colors hover:bg-red-500/20 active:bg-red-500/25"
         >
           <LogOut className="w-4 h-4" />
           Log Out
@@ -355,8 +355,8 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
 
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-light text-white tracking-tight">Edit Dossier</h3>
-                <p className="text-[10px] text-white/40 tracking-[0.2em] uppercase mt-0.5">Identity & Avatar</p>
+                <h3 className="text-lg font-light text-white tracking-tight">Edit Profile</h3>
+                <p className="text-[10px] text-white/40 tracking-[0.2em] uppercase mt-0.5">Username & Avatar</p>
               </div>
               <button
                 onClick={cancelEdit}
@@ -368,7 +368,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
 
             {/* Alias input */}
             <div className="space-y-2">
-              <label className="text-[10px] text-white/40 tracking-[0.25em] uppercase">Alias</label>
+              <label className="text-[10px] text-white/40 tracking-[0.25em] uppercase">Username</label>
               <div className={`flex items-center gap-2 bg-black/40 border rounded-xl px-3 py-2.5 transition-all ${
                 isTaken
                   ? 'border-red-500/50'
@@ -380,7 +380,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
                   value={draftAlias}
                   onChange={(e) => setDraftAlias(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   maxLength={MAX_LEN}
-                  placeholder="ghost_user"
+                  placeholder="username"
                   className="flex-1 bg-transparent outline-none text-white text-sm tracking-wider"
                   style={{ textTransform: 'none' }}
                 />
@@ -389,7 +389,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
                 {isTaken && <XCircle className="w-4 h-4 text-red-500" />}
               </div>
               {isTaken ? (
-                <p className="text-[10px] text-red-400 tracking-wider uppercase">Alias already compromised</p>
+                <p className="text-[10px] text-red-400 tracking-wider uppercase">Username already taken</p>
               ) : availability === 'invalid' && draftAlias.length > 0 ? (
                 <p className="text-[10px] text-yellow-400 tracking-wider uppercase">{MIN_LEN}-{MAX_LEN} chars / [a-z0-9_]</p>
               ) : (

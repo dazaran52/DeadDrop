@@ -29,6 +29,7 @@ import L from 'leaflet';
 
 interface AdminPanelProps {
   role: string | null;
+  theme?: 'dark' | 'light';
 }
 
 interface AdminEvent {
@@ -46,7 +47,8 @@ interface AdminEvent {
   prize_pool_override: boolean | null;
 }
 
-export default function AdminPanel({ role }: AdminPanelProps) {
+export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
+  const isDark = theme === 'dark';
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -387,42 +389,42 @@ export default function AdminPanel({ role }: AdminPanelProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-32 bg-[#09090B]">
+    <div className={`flex-1 flex flex-col p-6 gap-6 overflow-y-auto pb-32 ${isDark ? 'bg-[#09090B]' : 'bg-[#F2F2F7]'}`}>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
           <Shield className="w-5 h-5 text-red-400" />
         </div>
         <div>
-          <h1 className="text-xl font-light text-white tracking-tight">Command Center</h1>
-          <p className="text-[10px] text-white/40 tracking-[0.25em] uppercase">Admin · Live Operations</p>
+          <h1 className={`text-xl font-light tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Admin Panel</h1>
+          <p className={`text-[10px] tracking-[0.25em] uppercase ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Manage Events</p>
         </div>
       </div>
 
       {/* CREATE OPERATION */}
       <form
         onSubmit={handleCreate}
-        className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4"
+        className={`backdrop-blur-xl border rounded-2xl p-5 space-y-4 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white/80 border-black/10'}`}
       >
         <div className="flex items-center gap-2">
           <Plus className="w-4 h-4 text-green-400" />
-          <span className="text-[10px] text-white/60 tracking-[0.25em] uppercase">Create Operation</span>
+          <span className={`text-[10px] tracking-[0.25em] uppercase ${isDark ? 'text-white/60' : 'text-gray-600'}`}>Create Event</span>
         </div>
 
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Title</label>
+            <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Title</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Prague Vault Run"
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+              className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">REWARD POOL (DOX)</label>
+              <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>REWARD POOL (DOX)</label>
               <div className="flex items-center gap-2 mb-1.5">
                 <input
                   type="checkbox"
@@ -430,7 +432,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                   onChange={(e) => setPrizePoolOverride(e.target.checked)}
                   className="accent-green-500"
                 />
-                <span className="text-[9px] text-white/50">Manual override</span>
+                <span className={`text-[9px] ${isDark ? 'text-white/50' : 'text-gray-500'}`}>Manual override</span>
               </div>
               {prizePoolOverride ? (
                 <input
@@ -438,68 +440,68 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                   value={prizePool}
                   onChange={(e) => setPrizePool(e.target.value)}
                   placeholder="10000"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                  className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
                 />
               ) : (
-                <div className="w-full bg-black/20 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-white/40">
+                <div className={`w-full rounded-xl px-3 py-2.5 text-sm ${isDark ? 'bg-black/20 border border-white/5 text-white/40' : 'bg-gray-100 border border-black/5 text-gray-400'}`}>
                   Auto: players × fee × 0.9
                 </div>
               )}
             </div>
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Entry Fee (DOX)</label>
+              <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Entry Fee (DOX)</label>
               <input
                 type="number"
                 value={entryFee}
                 onChange={(e) => setEntryFee(e.target.value)}
                 placeholder="500"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Start Time</label>
+            <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Start Time</label>
             <input
               type="datetime-local"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+              className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
             />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Min Hunters</label>
+              <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Min Hunters</label>
               <input
                 type="number"
                 min={1}
                 value={minParticipants}
                 onChange={(e) => setMinParticipants(e.target.value)}
                 placeholder="3"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
               />
             </div>
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Max Hunters</label>
+              <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Max Hunters</label>
               <input
                 type="number"
                 min={1}
                 value={maxParticipants}
                 onChange={(e) => setMaxParticipants(e.target.value)}
                 placeholder="20"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
               />
             </div>
             <div>
-              <label className="text-[10px] text-white/40 tracking-wider uppercase block mb-1.5">Keys Req</label>
+              <label className={`text-[10px] tracking-wider uppercase block mb-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Keys Req</label>
               <input
                 type="number"
                 min={1}
                 value={requiredKeys}
                 onChange={(e) => setRequiredKeys(e.target.value)}
                 placeholder="4"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-white/30 transition-colors"
+                className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-colors ${isDark ? 'bg-black/40 border border-white/10 text-white focus:border-white/30' : 'bg-white border border-black/10 text-gray-900 focus:border-black/30'}`}
               />
             </div>
           </div>
@@ -593,10 +595,10 @@ export default function AdminPanel({ role }: AdminPanelProps) {
       {/* EVENTS DASHBOARD */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-white/60 tracking-[0.25em] uppercase">Live & Upcoming</span>
+          <span className={`text-[10px] tracking-[0.25em] uppercase ${isDark ? 'text-white/60' : 'text-gray-600'}`}>Live & Upcoming</span>
           <button
             onClick={fetchEvents}
-            className="text-[10px] text-white/40 hover:text-white tracking-wider uppercase transition-colors"
+            className={`text-[10px] tracking-wider uppercase transition-colors ${isDark ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
           >
             Refresh
           </button>
@@ -613,7 +615,7 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             <Loader2 className="w-5 h-5 text-white/40 animate-spin" />
           </div>
         ) : events.length === 0 ? (
-          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-center text-xs text-white/40 tracking-wider">
+          <div className={`backdrop-blur-xl border rounded-2xl p-6 text-center text-xs tracking-wider ${isDark ? 'bg-white/[0.03] border-white/10 text-white/40' : 'bg-white/80 border-black/10 text-gray-400'}`}>
             No active or upcoming operations.
           </div>
         ) : (
@@ -621,12 +623,12 @@ export default function AdminPanel({ role }: AdminPanelProps) {
             {events.map((ev) => (
               <div
                 key={ev.id}
-                className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-4 space-y-3"
+                className={`backdrop-blur-xl border rounded-2xl p-4 space-y-3 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white/80 border-black/10'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm text-white truncate">{ev.title}</div>
-                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-white/40 tracking-wider">
+                    <div className={`text-sm truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{ev.title}</div>
+                    <div className={`flex items-center gap-1.5 mt-1 text-[10px] tracking-wider ${isDark ? 'text-white/40' : 'text-gray-500'}`}>
                       <Calendar className="w-3 h-3" />
                       <span>{fmtDate(ev.start_time)}</span>
                     </div>
@@ -643,11 +645,11 @@ export default function AdminPanel({ role }: AdminPanelProps) {
                 </div>
 
                 <div className="flex items-center gap-4 text-[11px]">
-                  <div className="flex items-center gap-1.5 text-white/60">
+                  <div className={`flex items-center gap-1.5 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
                     <Trophy className="w-3 h-3 text-green-400" />
                     <span>{ev.prize_pool.toLocaleString()} DOX</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-white/60">
+                  <div className={`flex items-center gap-1.5 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
                     <Coins className="w-3 h-3 text-yellow-400" />
                     <span>{ev.entry_fee.toLocaleString()} DOX</span>
                   </div>

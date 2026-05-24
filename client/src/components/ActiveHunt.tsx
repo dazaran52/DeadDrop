@@ -1733,8 +1733,8 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               <div className="w-24 h-24 rounded-full bg-red-500/20 border-4 border-red-400 flex items-center justify-center mx-auto">
                 <ShieldAlert className="w-12 h-12 text-red-400" />
               </div>
-              <h1 className="text-4xl font-black text-white tracking-tighter uppercase">OPERATION TERMINATED</h1>
-              <p className="text-lg text-red-300 font-medium">VAULT COMPROMISED BY ANOTHER HUNTER</p>
+              <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Game Over</h1>
+              <p className="text-lg text-red-300 font-medium">Someone claimed the vault first!</p>
               <button
                 onClick={() => {
                   localStorage.removeItem('activeOperationId');
