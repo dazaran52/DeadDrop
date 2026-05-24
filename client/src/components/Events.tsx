@@ -34,6 +34,9 @@ interface Event {
   max_participants: number;
   participants: Participant[];
   required_keys?: number;
+  city?: string | null;
+  country?: string | null;
+  country_code?: string | null;
 }
 
 export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange, theme = 'dark' }: EventsProps) {
@@ -60,6 +63,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [liveCount, setLiveCount] = useState<number>(0);
   const [totalPrize, setTotalPrize] = useState<number>(0);
+  const [countryFilter, setCountryFilter] = useState<string>('ALL');
 
   // 1s tick for live countdown
   useEffect(() => {
@@ -151,8 +155,19 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     onNavigate?.('hunt', eventId);
   };
 
+  const getAvailableCountries = (): { code: string; name: string }[] => {
+    const seen = new Map<string, string>();
+    events.forEach(e => {
+      if (e.country_code) seen.set(e.country_code, e.country || e.country_code);
+    });
+    return Array.from(seen.entries()).map(([code, name]) => ({ code, name }));
+  };
+
   const getSortedEvents = () => {
-    const sorted = [...events];
+    const filtered = countryFilter === 'ALL'
+      ? [...events]
+      : events.filter(e => e.country_code === countryFilter);
+    const sorted = filtered;
     if (filter === 'time') {
       sorted.sort((a, b) => sortDirection === 'asc'
         ? new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
@@ -433,6 +448,35 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         </div>
       </div>
 
+      {/* Country chips */}
+      {getAvailableCountries().length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            onClick={() => setCountryFilter('ALL')}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
+              countryFilter === 'ALL'
+                ? 'bg-accent-orange text-white border-accent-orange'
+                : isDark ? 'bg-white/5 border-white/10 text-white/50 hover:text-white/80' : 'bg-black/5 border-black/10 text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🌍 All
+          </button>
+          {getAvailableCountries().map(({ code, name }) => (
+            <button
+              key={code}
+              onClick={() => setCountryFilter(code === countryFilter ? 'ALL' : code)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
+                countryFilter === code
+                  ? 'bg-accent-orange text-white border-accent-orange'
+                  : isDark ? 'bg-white/5 border-white/10 text-white/50 hover:text-white/80' : 'bg-black/5 border-black/10 text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {code} · {name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className={`flex gap-2 rounded-xl p-1 ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
         {[
@@ -594,6 +638,12 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               <h2 className={`text-2xl font-black tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {event.title}
               </h2>
+              {(event.city || event.country) && (
+                <div className={`flex items-center gap-1.5 text-[10px] tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                  <span>📍</span>
+                  <span>{[event.city, event.country].filter(Boolean).join(', ')}</span>
+                </div>
+              )}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">

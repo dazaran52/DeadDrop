@@ -45,6 +45,9 @@ interface AdminEvent {
   epicenter_lat: number | null;
   epicenter_lng: number | null;
   prize_pool_override: boolean | null;
+  city: string | null;
+  country: string | null;
+  country_code: string | null;
 }
 
 export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
@@ -66,6 +69,9 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   const [epicenter, setEpicenter] = useState<{lat: number, lng: number} | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [tempEpicenter, setTempEpicenter] = useState<{lat: number, lng: number} | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [locationLabel, setLocationLabel] = useState<{city: string; country: string; country_code: string} | null>(null);
+  const [tempLocationLabel, setTempLocationLabel] = useState<{city: string; country: string; country_code: string} | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -94,6 +100,25 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     iconAnchor: [12, 12],
   });
 
+  // Reverse geocode lat/lng via Nominatim
+  const reverseGeocode = async (lat: number, lng: number): Promise<{city: string; country: string; country_code: string} | null> => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
+        { headers: { 'User-Agent': 'DeadDropApp/1.0' } }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const addr = data.address || {};
+      const city = addr.city || addr.town || addr.village || addr.county || addr.state || '';
+      const country = addr.country || '';
+      const country_code = (addr.country_code || '').toUpperCase();
+      return { city, country, country_code };
+    } catch {
+      return null;
+    }
+  };
+
   // LocationPicker component - handles map click events (for form mini-map)
   const LocationPicker = () => {
     useMapEvents({
@@ -104,11 +129,17 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     return null;
   };
 
-  // LocationPicker for modal (uses temp state)
+  // LocationPicker for modal (uses temp state) + reverse geocoding
   const ModalLocationPicker = () => {
     useMapEvents({
       click(e) {
-        setTempEpicenter({ lat: e.latlng.lat, lng: e.latlng.lng });
+        const { lat, lng } = e.latlng;
+        setTempEpicenter({ lat, lng });
+        setGeocoding(true);
+        reverseGeocode(lat, lng).then((loc) => {
+          setTempLocationLabel(loc);
+          setGeocoding(false);
+        });
       },
     });
     return null;
@@ -117,6 +148,7 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   // Open map modal and initialize temp epicenter
   const openMapModal = () => {
     setTempEpicenter(epicenter);
+    setTempLocationLabel(locationLabel);
     setShowMapModal(true);
   };
 
@@ -124,6 +156,7 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   const confirmCoordinates = () => {
     if (tempEpicenter) {
       setEpicenter(tempEpicenter);
+      setLocationLabel(tempLocationLabel);
     }
     setShowMapModal(false);
   };
@@ -139,7 +172,7 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     setLoading(true);
     const { data, error: dbError } = await supabase
       .from('events')
-      .select('id, title, prize_pool, prize_pool_override, entry_fee, start_time, status, min_participants, max_participants, required_keys, epicenter_lat, epicenter_lng')
+      .select('id, title, prize_pool, prize_pool_override, entry_fee, start_time, status, min_participants, max_participants, required_keys, epicenter_lat, epicenter_lng, city, country, country_code')
       .in('status', ['live', 'upcoming'])
       .order('start_time', { ascending: true });
 
@@ -192,6 +225,7 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     setMinParticipants('3');
     setRequiredKeys('4');
     setEpicenter(null);
+    setLocationLabel(null);
     setEditingId(null);
   };
 
@@ -209,6 +243,11 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
       setEpicenter({ lat: ev.epicenter_lat, lng: ev.epicenter_lng });
     } else {
       setEpicenter(null);
+    }
+    if (ev.city || ev.country) {
+      setLocationLabel({ city: ev.city || '', country: ev.country || '', country_code: ev.country_code || '' });
+    } else {
+      setLocationLabel(null);
     }
     // Scroll to form
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -263,6 +302,9 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
       required_keys: reqK,
       epicenter_lat: epicenter.lat,
       epicenter_lng: epicenter.lng,
+      city: locationLabel?.city || null,
+      country: locationLabel?.country || null,
+      country_code: locationLabel?.country_code || null,
     };
 
     if (editingId) {
@@ -515,7 +557,7 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
               </label>
               {epicenter !== null && (
                 <span className="text-[10px] text-green-400 ml-auto">
-                  {(epicenter.lat ?? 0).toFixed(5)}, {(epicenter.lng ?? 0).toFixed(5)}
+                  {locationLabel ? `${locationLabel.city}, ${locationLabel.country_code}` : `${(epicenter.lat ?? 0).toFixed(4)}, ${(epicenter.lng ?? 0).toFixed(4)}`}
                 </span>
               )}
             </div>
@@ -632,6 +674,12 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
                       <Calendar className="w-3 h-3" />
                       <span>{fmtDate(ev.start_time)}</span>
                     </div>
+                    {(ev.city || ev.country) && (
+                      <div className={`flex items-center gap-1 mt-1 text-[10px] ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                        <MapPin className="w-3 h-3" />
+                        <span>{[ev.city, ev.country_code].filter(Boolean).join(', ')}</span>
+                      </div>
+                    )}
                   </div>
                   <span
                     className={`text-[9px] px-2 py-1 rounded-md tracking-[0.2em] uppercase border ${
@@ -753,10 +801,16 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
               </div>
             )}
 
-            {/* Coordinates display */}
+            {/* Location label / geocoding indicator */}
             {tempEpicenter !== null && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-green-500/30 text-green-300 text-xs px-4 py-2 rounded-lg pointer-events-none">
-                {(tempEpicenter.lat ?? 0).toFixed(6)}, {(tempEpicenter.lng ?? 0).toFixed(6)}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm border border-green-500/30 text-green-300 text-xs px-4 py-2 rounded-lg pointer-events-none flex items-center gap-2">
+                {geocoding ? (
+                  <><Loader2 className="w-3 h-3 animate-spin" /><span>Detecting location…</span></>
+                ) : tempLocationLabel ? (
+                  <><MapPin className="w-3 h-3" /><span>{tempLocationLabel.city}, {tempLocationLabel.country} ({tempLocationLabel.country_code})</span></>
+                ) : (
+                  <span>{(tempEpicenter.lat ?? 0).toFixed(5)}, {(tempEpicenter.lng ?? 0).toFixed(5)}</span>
+                )}
               </div>
             )}
           </div>
