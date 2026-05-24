@@ -92,6 +92,16 @@
   background: #444;
 }
 
+.light ::-webkit-scrollbar-track {
+  background: #e5e5e5;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: #bbb;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
 /* Glitch effect for alias on hover */
 @keyframes glitch-skew {
   0%, 100% { transform: skew(0deg); }

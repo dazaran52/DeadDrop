@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Pencil, Target, TrendingUp, Check, X, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Pencil, Target, TrendingUp, Check, X, AlertTriangle, CheckCircle2, XCircle, Sun, Moon, Volume2, VolumeX, Smartphone, LogOut } from 'lucide-react';
 
 interface ProfileProps {
   onLogout: () => void;
@@ -15,6 +15,8 @@ interface ProfileProps {
   avatarUrl: string | null;
   onUsernameChange: (u: string) => void;
   onAvatarChange: (u: string) => void;
+  theme: 'dark' | 'light';
+  onThemeChange: (t: 'dark' | 'light') => void;
 }
 
 // Hardcoded avatar set
@@ -32,11 +34,30 @@ const MAX_LEN = 16;
 
 type Availability = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
-export default function Profile({ onLogout, balance, username, userId, avatarUrl, onUsernameChange, onAvatarChange }: ProfileProps) {
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`relative w-[44px] h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${
+        on ? 'bg-green-500' : 'bg-white/15'
+      }`}
+    >
+      <div
+        className={`absolute top-[3px] w-[20px] h-[20px] rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          on ? 'translate-x-[21px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  );
+}
+
+export default function Profile({ onLogout, balance, username, userId, avatarUrl, onUsernameChange, onAvatarChange, theme, onThemeChange }: ProfileProps) {
   const [extractionsCount, setExtractionsCount] = useState<number>(0);
   const [totalProfit, setTotalProfit] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('dd_sound') !== 'off');
+  const [vibrationEnabled, setVibrationEnabled] = useState(() => localStorage.getItem('dd_vibration') !== 'off');
 
   useEffect(() => {
     if (!userId) return;
@@ -174,7 +195,7 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
 
       if (updates.username) onUsernameChange(updates.username);
       if (updates.avatar_url !== undefined && updates.avatar_url !== null) onAvatarChange(updates.avatar_url);
-      setToast({ kind: 'ok', msg: 'Dossier updated' });
+      setToast({ kind: 'ok', msg: 'Profile updated' });
       setEditing(false);
     } catch (err: any) {
       console.error('Unexpected error:', err);
@@ -184,102 +205,145 @@ export default function Profile({ onLogout, balance, username, userId, avatarUrl
     }
   };
 
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem('dd_sound', next ? 'on' : 'off');
+  };
+
+  const toggleVibration = () => {
+    const next = !vibrationEnabled;
+    setVibrationEnabled(next);
+    localStorage.setItem('dd_vibration', next ? 'on' : 'off');
+  };
+
   const isTaken = availability === 'taken';
   const isAvailable = availability === 'available';
   const isChecking = availability === 'checking';
   const canSave = isAvailable && !saving;
 
+  const isDark = theme === 'dark';
+  const cardBg = isDark ? 'bg-white/[0.04]' : 'bg-black/[0.03]';
+  const cardBorder = isDark ? 'border-white/[0.08]' : 'border-black/[0.06]';
+  const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+  const textSecondary = isDark ? 'text-white/50' : 'text-gray-500';
+  const textTertiary = isDark ? 'text-white/30' : 'text-gray-400';
+  const divider = isDark ? 'divide-white/[0.06]' : 'divide-black/[0.06]';
+  const pageBg = isDark ? 'bg-[#09090B]' : 'bg-[#F2F2F7]';
+
   return (
-    <div className="flex-1 flex flex-col p-6 gap-5 overflow-y-auto pb-32 bg-[#09090B] relative">
-      {/* Skyline gradient backdrop */}
-      <div className="pointer-events-none absolute inset-0 opacity-50" style={{
-        background: 'radial-gradient(ellipse at top, rgba(74,222,128,0.06) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(168,85,247,0.05) 0%, transparent 50%)'
-      }} />
+    <div className={`flex-1 flex flex-col gap-6 overflow-y-auto pb-32 px-5 pt-2 ${pageBg} relative`}>
 
-      {/* Identity card */}
-      <div className="relative bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 overflow-hidden">
-        {/* Neon top edge */}
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-xl border border-white/10 bg-black/40 overflow-hidden flex-shrink-0">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/30 text-2xl">∅</div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-white/40 tracking-[0.25em] uppercase mb-1">Alias</div>
-            <h2
-              className="alias-glitch text-3xl font-light text-white tracking-tight cursor-default truncate"
-              style={{ textTransform: 'none' }}
-            >
-              {username || 'ghost_user'}
-            </h2>
-          </div>
-
-          <button
-            onClick={openEdit}
-            className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
-            title="Edit dossier"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+      {/* Hero — Avatar + Username */}
+      <div className="flex flex-col items-center pt-2">
+        <div className={`w-20 h-20 rounded-full border-2 ${cardBorder} overflow-hidden mb-3 shadow-lg`}>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className={`w-full h-full flex items-center justify-center ${textTertiary} text-3xl ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>?</div>
+          )}
         </div>
+        <h2
+          className={`text-xl font-semibold ${textPrimary} tracking-tight`}
+          style={{ textTransform: 'none' }}
+        >
+          {username || 'unknown'}
+        </h2>
+        <button
+          onClick={openEdit}
+          className={`mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${isDark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-black/5 text-gray-600 hover:bg-black/10'}`}
+        >
+          <Pencil className="w-3 h-3" />
+          Edit Profile
+        </button>
       </div>
 
-      {/* Equity */}
-      <div className="relative bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 overflow-hidden">
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-green-400/30 to-transparent" />
-        <div className="text-[10px] text-white/40 tracking-[0.25em] uppercase mb-3">Equity</div>
+      {/* Balance */}
+      <div className={`${cardBg} border ${cardBorder} rounded-2xl p-5`}>
+        <div className={`text-xs font-medium ${textSecondary} mb-1`}>Balance</div>
         <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-light text-white tracking-tight drop-shadow-[0_0_8px_rgba(74,222,128,0.15)]">{balance.toLocaleString()}</span>
-          <span className="text-sm text-white/40 tracking-wider">DOX</span>
+          <span className={`text-3xl font-bold ${textPrimary} tracking-tight tabular-nums`}>{balance.toLocaleString()}</span>
+          <span className={`text-sm font-medium ${textTertiary}`}>DOX</span>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-500/5 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium p-3 rounded-xl">
           {error}
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:border-green-400/30 transition-colors">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-[10px] text-white/40 tracking-[0.2em] uppercase">Extractions</span>
+      {/* Stats — iOS grouped */}
+      <div className={`${cardBg} border ${cardBorder} rounded-2xl overflow-hidden divide-y ${divider}`}>
+        <div className="flex items-center justify-between px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <Target className="w-3.5 h-3.5 text-green-500" />
+            </div>
+            <span className={`text-sm font-medium ${textPrimary}`}>Extractions</span>
           </div>
-          <div className="text-3xl font-light text-white tracking-tight">
-            {loading ? <Loader2 className="w-5 h-5 animate-spin text-white/40" /> : extractionsCount}
-          </div>
+          <span className={`text-sm font-semibold ${textSecondary} tabular-nums`}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : extractionsCount}
+          </span>
         </div>
-
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:border-green-400/30 transition-colors">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-[10px] text-white/40 tracking-[0.2em] uppercase">Total Profit</span>
+        <div className="flex items-center justify-between px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <TrendingUp className="w-3.5 h-3.5 text-blue-500" />
+            </div>
+            <span className={`text-sm font-medium ${textPrimary}`}>Total Profit</span>
           </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl font-light text-white tracking-tight">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin text-white/40" /> : totalProfit.toLocaleString()}
-            </span>
-            {!loading && <span className="text-xs text-white/40">DOX</span>}
+          <span className={`text-sm font-semibold ${textSecondary} tabular-nums`}>
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{totalProfit.toLocaleString()} <span className={textTertiary}>DOX</span></>}
+          </span>
+        </div>
+      </div>
+
+      {/* Settings — iOS grouped */}
+      <div>
+        <div className={`text-xs font-semibold ${textSecondary} uppercase tracking-wider px-4 mb-2`}>Settings</div>
+        <div className={`${cardBg} border ${cardBorder} rounded-2xl overflow-hidden divide-y ${divider}`}>
+          {/* Theme */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'bg-indigo-500/10' : 'bg-orange-500/10'}`}>
+                {isDark ? <Moon className="w-3.5 h-3.5 text-indigo-400" /> : <Sun className="w-3.5 h-3.5 text-orange-500" />}
+              </div>
+              <span className={`text-sm font-medium ${textPrimary}`}>Dark Mode</span>
+            </div>
+            <Toggle on={isDark} onToggle={() => onThemeChange(isDark ? 'light' : 'dark')} />
+          </div>
+          {/* Sound */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-pink-500" /> : <VolumeX className="w-3.5 h-3.5 text-pink-500/50" />}
+              </div>
+              <span className={`text-sm font-medium ${textPrimary}`}>Sound</span>
+            </div>
+            <Toggle on={soundEnabled} onToggle={toggleSound} />
+          </div>
+          {/* Vibration */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+              </div>
+              <span className={`text-sm font-medium ${textPrimary}`}>Vibration</span>
+            </div>
+            <Toggle on={vibrationEnabled} onToggle={toggleVibration} />
           </div>
         </div>
       </div>
 
-      {/* Disconnect */}
-      <div className="mt-auto">
+      {/* Log Out */}
+      <div className={`${cardBg} border ${cardBorder} rounded-2xl overflow-hidden`}>
         <button
           onClick={onLogout}
-          className="w-full py-3.5 bg-white/[0.03] backdrop-blur-xl border border-white/10 text-red-400 text-sm tracking-wider rounded-2xl hover:border-red-500/40 hover:bg-red-500/5 hover:shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-red-500 text-sm font-medium transition-colors hover:bg-red-500/5 active:bg-red-500/10"
         >
-          Disconnect
+          <LogOut className="w-4 h-4" />
+          Log Out
         </button>
       </div>
 

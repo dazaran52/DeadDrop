@@ -27,7 +27,12 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isAppReady, setIsAppReady] = useState(false);
   const [view, setView] = useState<ViewType>('events');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('dd_theme') as 'dark' | 'light') || 'dark';
+    }
+    return 'dark';
+  });
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [balance, setBalance] = useState<number>(0);
   const [username, setUsername] = useState<string | null>(null);
@@ -64,6 +69,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('light');
     }
+    localStorage.setItem('dd_theme', theme);
   }, [theme]);
 
   useEffect(() => {
@@ -232,7 +238,7 @@ export default function App() {
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
         setIsLoggedIn(false);
-      }} balance={balance} username={username} userId={userId} avatarUrl={avatarUrl} onUsernameChange={setUsername} onAvatarChange={setAvatarUrl} />;
+      }} balance={balance} username={username} userId={userId} avatarUrl={avatarUrl} onUsernameChange={setUsername} onAvatarChange={setAvatarUrl} theme={theme} onThemeChange={setTheme} />;
       case 'admin': return <AdminPanel role={role} />;
       default: return <Events balance={balance} socket={socketInstance} onNavigate={(view, operationId) => {
         if (operationId) {
