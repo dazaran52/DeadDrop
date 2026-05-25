@@ -452,13 +452,34 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   };
 
   return (
-    <div
-      ref={scrollRef}
-      className={`flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 relative ${isDark ? 'bg-bg-deep' : 'bg-[#F2F2F7]'}`}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className={`flex-1 flex flex-col relative overflow-hidden ${isDark ? 'bg-bg-deep' : 'bg-[#F2F2F7]'}`}>
+
+      {/* Pull-to-refresh indicator — fixed above scroll content */}
+      <div
+        className="absolute top-0 left-0 right-0 flex justify-center items-end z-50 pointer-events-none"
+        style={{
+          height: Math.max(pullY, 0),
+          opacity: Math.min(pullY / 45, 1),
+          transition: pullY === 0 ? 'height 0.2s ease-out, opacity 0.2s ease-out' : 'none',
+        }}
+      >
+        <RefreshCw
+          className={`w-5 h-5 mb-2 ${isDark ? 'text-white/60' : 'text-gray-400'} ${pullY > 45 || isRefreshing ? 'animate-spin' : ''}`}
+          style={{ transform: `rotate(${Math.min(pullY * 4, 360)}deg)` }}
+        />
+      </div>
+
+      <div
+        ref={scrollRef}
+        className={`flex-1 flex flex-col p-6 gap-8 overflow-y-auto pb-32 relative`}
+        style={{
+          transform: `translateY(${pullY}px)`,
+          transition: pullY === 0 ? 'transform 0.2s ease-out' : 'none',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
       {/* Toast Message */}
       <AnimatePresence>
         {toastMessage && (
@@ -472,16 +493,6 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Pull-to-refresh indicator — above filter tabs */}
-      <div
-        className="overflow-hidden transition-all duration-200 ease-out"
-        style={{ height: pullY > 0 ? Math.max(pullY - 10, 0) : 0 }}
-      >
-        <div className="flex justify-center items-center" style={{ opacity: Math.min(pullY / 45, 1) }}>
-          <RefreshCw className={`w-5 h-5 ${isDark ? 'text-white/50' : 'text-gray-400'} ${pullY > 45 || isRefreshing ? 'animate-spin' : ''}`} />
-        </div>
-      </div>
 
       {/* Filter Tabs */}
       <div className={`flex gap-2 rounded-xl p-1 ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
@@ -990,6 +1001,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
           );
         })()}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -81,45 +81,10 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const isClaimingItemRef = useRef(false);
   const lastGpsSentRef = useRef<number>(0);
   const vaultTriggeredRef = useRef(false);
-  const [mapHeading, setMapHeading] = useState(0);
-  const [compassActive, setCompassActive] = useState(false);
-  const compassEnabledRef = useRef(false);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [hexCode, setHexCode] = useState('0x000000');
   const [isClaimed, setIsClaimed] = useState(false);
-
-  // Device orientation → map heading
-  useEffect(() => {
-    if (!compassActive) return;
-    const handler = (e: DeviceOrientationEvent) => {
-      const alpha = (e as any).webkitCompassHeading ?? e.alpha;
-      if (alpha !== null) {
-        setMapHeading(alpha);
-      }
-    };
-    window.addEventListener('deviceorientation', handler, true);
-    return () => window.removeEventListener('deviceorientation', handler, true);
-  }, [compassActive]);
-
-  const handleToggleCompass = async () => {
-    if (compassActive) {
-      setCompassActive(false);
-      setMapHeading(0);
-      return;
-    }
-    // iOS requires permission
-    const DevOri = DeviceOrientationEvent as any;
-    if (typeof DevOri.requestPermission === 'function') {
-      try {
-        const result = await DevOri.requestPermission();
-        if (result !== 'granted') return;
-      } catch {
-        return;
-      }
-    }
-    setCompassActive(true);
-  };
 
   // 4Hz countdown tick — only needed while event is upcoming
   useEffect(() => {
@@ -1513,7 +1478,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               rewards={rewards}
               items={mapItems}
               shouldCenter={shouldCenterMap}
-              heading={mapHeading}
               onMapReady={setMapInstance}
               onVaultClaim={(vaultId) => {
                 if (socket) {
@@ -1615,22 +1579,46 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
         )}
       </AnimatePresence>
 
-      {/* Compass arrow to nearest key */}
-      {matchResult === 'playing' && !isExtracting && nearestKeyBearing !== null && nearestKeyDist !== null && nearestKeyDist > 25 && eventStatus !== 'upcoming' && (
-        <div className="fixed bottom-[220px] left-4 z-[999999] flex flex-col items-center gap-1">
-          <div
-            className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md border border-purple-400/50 flex items-center justify-center shadow-lg"
-          >
-            <svg
-              width="28" height="28" viewBox="0 0 28 28"
-              style={{ transform: `rotate(${nearestKeyBearing}deg)`, transition: 'transform 0.3s ease-out' }}
-            >
-              <polygon points="14,2 20,22 14,17 8,22" fill="rgba(168,85,247,0.9)" stroke="rgba(168,85,247,1)" strokeWidth="1" />
-            </svg>
-          </div>
-          <span className="text-[9px] font-bold text-white/70 tabular-nums">{nearestKeyDist}m</span>
-        </div>
-      )}
+      {/* Edge glow toward nearest key */}
+      {matchResult === 'playing' && !isExtracting && nearestKeyBearing !== null && nearestKeyDist !== null && nearestKeyDist > 25 && eventStatus !== 'upcoming' && (() => {
+        const angle = nearestKeyBearing;
+        // Map bearing to which screen edge(s) to glow
+        // bearing 0=N(top), 90=E(right), 180=S(bottom), 270=W(left)
+        const gradients: { className: string; style: React.CSSProperties }[] = [];
+        const size = 160;
+        const opacity = nearestKeyDist < 100 ? 0.8 : nearestKeyDist < 300 ? 0.5 : 0.3;
+
+        // Top glow when bearing in [315,360) or [0,45]
+        if (angle >= 315 || angle < 45) {
+          gradients.push({ className: 'fixed top-0 left-0 right-0 pointer-events-none z-[999990]', style: { height: size, background: `linear-gradient(to bottom, rgba(168,85,247,${opacity}) 0%, transparent 100%)` } });
+        }
+        // Right
+        if (angle >= 45 && angle < 135) {
+          gradients.push({ className: 'fixed top-0 right-0 bottom-0 pointer-events-none z-[999990]', style: { width: size, background: `linear-gradient(to left, rgba(168,85,247,${opacity}) 0%, transparent 100%)` } });
+        }
+        // Bottom
+        if (angle >= 135 && angle < 225) {
+          gradients.push({ className: 'fixed bottom-0 left-0 right-0 pointer-events-none z-[999990]', style: { height: size, background: `linear-gradient(to top, rgba(168,85,247,${opacity}) 0%, transparent 100%)` } });
+        }
+        // Left
+        if (angle >= 225 && angle < 315) {
+          gradients.push({ className: 'fixed top-0 left-0 bottom-0 pointer-events-none z-[999990]', style: { width: size, background: `linear-gradient(to right, rgba(168,85,247,${opacity}) 0%, transparent 100%)` } });
+        }
+
+        return (
+          <>
+            {gradients.map((g, i) => (
+              <motion.div
+                key={i}
+                className={g.className}
+                style={g.style}
+                animate={{ opacity: [opacity * 0.6, opacity, opacity * 0.6] }}
+                transition={{ duration: nearestKeyDist < 50 ? 0.6 : nearestKeyDist < 150 ? 1.0 : 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            ))}
+          </>
+        );
+      })()}
 
       {/* Zoom Controls - Left Bottom - Only show when countdown is finished */}
       {matchResult === 'playing' && mapInstance && activeOperationId && eventStatus !== 'upcoming' && (
@@ -1664,24 +1652,6 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       {/* Right Side FABs - Bottom Right - Only show when countdown is finished */}
       {matchResult === 'playing' && activeOperationId && eventStatus !== 'upcoming' && (
         <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[999999]">
-
-        {/* Compass FAB */}
-        <button
-          onClick={handleToggleCompass}
-          title={compassActive ? 'Disable compass' : 'Enable compass'}
-          className={`w-12 h-12 rounded-full backdrop-blur-md border flex items-center justify-center transition-all ${
-            compassActive
-              ? 'bg-accent-orange/20 border-accent-orange text-accent-orange shadow-[0_0_12px_rgba(255,140,0,0.4)]'
-              : 'bg-black/50 border-white/10 text-white/80 hover:text-white hover:bg-black/70'
-          }`}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: `rotate(${mapHeading}deg)`, transition: 'transform 0.15s linear' }}
-          >
-            <polygon points="12,2 15,12 12,22 9,12" fill={compassActive ? 'currentColor' : 'none'} />
-            <circle cx="12" cy="12" r="2" />
-          </svg>
-        </button>
 
         {/* Map Refresh Button */}
         {mapInstance && (
