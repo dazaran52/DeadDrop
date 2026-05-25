@@ -80,6 +80,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const isClaimingRef = useRef(false);
   const isClaimingItemRef = useRef(false);
   const lastGpsSentRef = useRef<number>(0);
+  const vaultTriggeredRef = useRef(false);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [hexCode, setHexCode] = useState('0x000000');
@@ -727,6 +728,22 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
   }, [nearbyItem, activeOperationId]);
 
+  // Emit vault:trigger when player collects enough keys
+  useEffect(() => {
+    if (
+      socket &&
+      activeOperationId &&
+      requiredKeys > 0 &&
+      collectedKeys >= requiredKeys &&
+      !vaultTriggeredRef.current &&
+      eventStatus === 'live'
+    ) {
+      vaultTriggeredRef.current = true;
+      socket.emit('vault:trigger', { eventId: activeOperationId });
+      console.log('[vault:trigger] emitted for event', activeOperationId);
+    }
+  }, [collectedKeys, requiredKeys, socket, activeOperationId, eventStatus]);
+
   // Short "ting" sound for key pickup
   const playKeyTing = useCallback(() => {
     try {
@@ -942,6 +959,9 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
         // RPC complete_operation is now called directly from startDecryption (real user click)
         // This handler only resets local UI state when server confirms vault:claimed
+
+        // Reset vault trigger flag so next round can spawn a new vault
+        vaultTriggeredRef.current = false;
 
         // Show key spend animation with required_keys amount
         setShowKeySpend(true);
@@ -1669,14 +1689,40 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       </div>
       )}
 
-      {/* Claim Overlay */}
-      {claimOverlay && (
-        <div className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-sm transition-all duration-300 ease-out transform opacity-100 scale-100 translate-y-0">
-          <div className="bg-purple-600/20 border border-purple-500 text-purple-400 font-mono text-xl tracking-widest px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
-            {claimOverlay} - {collectedKeys}/{requiredKeys}
-          </div>
-        </div>
-      )}
+      {/* Claim Overlay — animated */}
+      <AnimatePresence>
+        {claimOverlay && (
+          <motion.div
+            key="claim-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999999] flex items-center justify-center pointer-events-none"
+          >
+            <motion.div
+              initial={{ scale: 0.7, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: -20, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+              className="flex flex-col items-center gap-2"
+            >
+              <motion.div
+                animate={{ rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] }}
+                transition={{ duration: 0.5 }}
+                className="text-4xl"
+              >
+                🔑
+              </motion.div>
+              <div className="bg-purple-600/20 border border-purple-500 text-purple-300 font-mono text-lg tracking-widest px-8 py-3 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.4)] uppercase">
+                Key collected!
+              </div>
+              <div className="text-purple-400/70 text-sm font-mono tracking-widest">
+                {collectedKeys}/{requiredKeys} keys
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Victory Screen */}
       <AnimatePresence>

@@ -17,6 +17,7 @@ interface EventsProps {
   onNavigate?: (view: string, operationId?: string) => void;
   onRegisteredEventsChange?: (events: Array<{ id: string; start_time: string }>) => void;
   theme?: 'dark' | 'light';
+  playerCoords?: { latitude: number; longitude: number } | null;
 }
 
 interface Participant {
@@ -37,9 +38,11 @@ interface Event {
   city?: string | null;
   country?: string | null;
   country_code?: string | null;
+  epicenter_lat?: number | null;
+  epicenter_lng?: number | null;
 }
 
-export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange, theme = 'dark' }: EventsProps) {
+export default function Events({ balance, socket, activeOperationId, onNavigate, onRegisteredEventsChange, theme = 'dark', playerCoords }: EventsProps) {
   const isDark = theme === 'dark';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
@@ -64,6 +67,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
   const [liveCount, setLiveCount] = useState<number>(0);
   const [totalPrize, setTotalPrize] = useState<number>(0);
   const [countryFilter, setCountryFilter] = useState<string>('ALL');
+  const [showAll, setShowAll] = useState(false);
 
   // 1s tick for live countdown
   useEffect(() => {
@@ -155,31 +159,50 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     onNavigate?.('hunt', eventId);
   };
 
-  const getAvailableCountries = (): { code: string; name: string }[] => {
-    const seen = new Map<string, string>();
-    events.forEach(e => {
-      if (e.country_code) seen.set(e.country_code, e.country || e.country_code);
-    });
-    return Array.from(seen.entries()).map(([code, name]) => ({ code, name }));
+  const getEventDistance = (event: Event): number | null => {
+    if (!playerCoords || !event.epicenter_lat || !event.epicenter_lng) return null;
+    const R = 6371000;
+    const dLat = (event.epicenter_lat - playerCoords.latitude) * Math.PI / 180;
+    const dLng = (event.epicenter_lng - playerCoords.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(playerCoords.latitude * Math.PI / 180) * Math.cos(event.epicenter_lat * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  const formatDistance = (meters: number): string => {
+    if (meters < 1000) return `${Math.round(meters)}m`;
+    if (meters < 10000) return `${(meters / 1000).toFixed(1)}km`;
+    return `${Math.round(meters / 1000)}km`;
+  };
+
+  const MAX_NEARBY_KM = 500_000; // 500km in meters
+
   const getSortedEvents = () => {
-    const filtered = countryFilter === 'ALL'
-      ? [...events]
-      : events.filter(e => e.country_code === countryFilter);
-    const sorted = filtered;
-    if (filter === 'time') {
-      sorted.sort((a, b) => sortDirection === 'asc'
-        ? new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-        : new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    } else if (filter === 'entry') {
-      sorted.sort((a, b) => sortDirection === 'asc' ? a.entry_fee - b.entry_fee : b.entry_fee - a.entry_fee);
-    } else if (filter === 'diff') {
-      sorted.sort((a, b) => sortDirection === 'asc'
-        ? (a.required_keys || 0) - (b.required_keys || 0)
-        : (b.required_keys || 0) - (a.required_keys || 0));
+    const withDist = events.map(e => ({ e, dist: getEventDistance(e) }));
+
+    // Primary sort: by distance if coords available, else by selected filter
+    if (playerCoords && withDist.some(x => x.dist !== null)) {
+      withDist.sort((a, b) => {
+        if (a.dist === null && b.dist === null) return 0;
+        if (a.dist === null) return 1;
+        if (b.dist === null) return -1;
+        return a.dist - b.dist;
+      });
+    } else {
+      withDist.sort((a, b) => {
+        if (filter === 'entry') return sortDirection === 'asc' ? a.e.entry_fee - b.e.entry_fee : b.e.entry_fee - a.e.entry_fee;
+        if (filter === 'diff') return sortDirection === 'asc' ? (a.e.required_keys || 0) - (b.e.required_keys || 0) : (b.e.required_keys || 0) - (a.e.required_keys || 0);
+        return sortDirection === 'asc'
+          ? new Date(a.e.start_time).getTime() - new Date(b.e.start_time).getTime()
+          : new Date(b.e.start_time).getTime() - new Date(a.e.start_time).getTime();
+      });
     }
-    return sorted;
+
+    const nearby = withDist.filter(x => x.dist === null || x.dist <= MAX_NEARBY_KM);
+    const far = withDist.filter(x => x.dist !== null && x.dist > MAX_NEARBY_KM);
+
+    return { nearby: nearby.map(x => x.e), far: far.map(x => x.e) };
   };
 
   const handleFilterClick = (newFilter: 'time' | 'entry' | 'diff') => {
@@ -448,35 +471,6 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
         </div>
       </div>
 
-      {/* Country chips */}
-      {getAvailableCountries().length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            onClick={() => setCountryFilter('ALL')}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
-              countryFilter === 'ALL'
-                ? 'bg-accent-orange text-white border-accent-orange'
-                : isDark ? 'bg-white/5 border-white/10 text-white/50 hover:text-white/80' : 'bg-black/5 border-black/10 text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🌍 All
-          </button>
-          {getAvailableCountries().map(({ code, name }) => (
-            <button
-              key={code}
-              onClick={() => setCountryFilter(code === countryFilter ? 'ALL' : code)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all border ${
-                countryFilter === code
-                  ? 'bg-accent-orange text-white border-accent-orange'
-                  : isDark ? 'bg-white/5 border-white/10 text-white/50 hover:text-white/80' : 'bg-black/5 border-black/10 text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {code} · {name}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Filter Tabs */}
       <div className={`flex gap-2 rounded-xl p-1 ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
         {[
@@ -574,7 +568,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
       ) : (
         <div className="space-y-6">
 
-          {getSortedEvents().map((event, index) => (
+          {getSortedEvents().nearby.map((event, index) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, y: 20 }}
@@ -638,12 +632,17 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               <h2 className={`text-2xl font-black tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {event.title}
               </h2>
-              {(event.city || event.country) && (
-                <div className={`flex items-center gap-1.5 text-[10px] tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+              <div className={`flex items-center gap-1.5 text-[10px] tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
                   <span>📍</span>
-                  <span>{[event.city, event.country].filter(Boolean).join(', ')}</span>
+                  <span>
+                    {[event.city, event.country_code].filter(Boolean).join(', ')}
+                    {getEventDistance(event) !== null && (
+                      <span className="ml-1 text-accent-orange font-bold">
+                        · {formatDistance(getEventDistance(event)!)}
+                      </span>
+                    )}
+                  </span>
                 </div>
-              )}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
@@ -765,6 +764,48 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
                   </button>
                 );
               })()}
+            </motion.div>
+          ))}
+
+          {/* Show All worldwide button */}
+          {getSortedEvents().far.length > 0 && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className={`w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-widest transition-all border ${
+                isDark ? 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white' : 'bg-black/5 border-black/10 text-gray-500 hover:bg-black/10 hover:text-gray-700'
+              }`}
+            >
+              🌍 Show all worldwide events ({getSortedEvents().far.length} more)
+            </button>
+          )}
+
+          {/* Far events (other countries) */}
+          {showAll && getSortedEvents().far.map((event, index) => (
+            <motion.div
+              key={event.id + '-far'}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className={`rounded-[2.5rem] p-6 shadow-md space-y-3 opacity-80 ${isDark ? 'bg-[#1C1C1E] shadow-black/50' : 'bg-white border border-black/[0.07] shadow-black/5'}`}
+            >
+              <div className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-gray-400'}`}>🌍 International</div>
+              <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{event.title}</h2>
+              {(event.city || event.country) && (
+                <div className={`flex items-center gap-1.5 text-[10px] ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
+                  <span>📍</span>
+                  <span>
+                    {[event.city, event.country].filter(Boolean).join(', ')}
+                    {getEventDistance(event) !== null && (
+                      <span className="ml-1 text-accent-orange font-bold"> · {formatDistance(getEventDistance(event)!)}</span>
+                    )}
+                  </span>
+                </div>
+              )}
+              <div className={`flex gap-3 text-sm ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
+                <span className="text-green-500 font-bold">{event.prize_pool.toLocaleString()} DOX</span>
+                <span>·</span>
+                <span>Entry: {event.entry_fee.toLocaleString()} DOX</span>
+              </div>
             </motion.div>
           ))}
         </div>

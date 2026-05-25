@@ -235,6 +235,7 @@ export default function App() {
         }}
         onRegisteredEventsChange={setRegisteredEvents}
         theme={theme}
+        playerCoords={coords ? { latitude: coords.latitude, longitude: coords.longitude } : null}
       />;
       case 'profile': return <Profile onLogout={() => {
         supabase.auth.signOut();
@@ -246,7 +247,7 @@ export default function App() {
           setActiveOperationId(operationId);
         }
         setView(view as any);
-      }} onRegisteredEventsChange={setRegisteredEvents} theme={theme} />;
+      }} onRegisteredEventsChange={setRegisteredEvents} theme={theme} playerCoords={coords ? { latitude: coords.latitude, longitude: coords.longitude } : null} />;
     }
   };
 

@@ -346,6 +346,128 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Vault trigger: called when a player collects enough keys
+  socket.on('vault:trigger', async ({ eventId }) => {
+    try {
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId || !eventId) return;
+
+      // Verify player is a participant of this event with enough keys
+      const { data: participant, error: partErr } = await supabase
+        .from('event_participants')
+        .select('keys_balance')
+        .eq('event_id', eventId)
+        .eq('user_id', playerId)
+        .single();
+
+      if (partErr || !participant) {
+        socket.emit('vault:error', { message: 'Not a participant' });
+        return;
+      }
+
+      // Fetch required_keys for this event
+      const { data: ev, error: evErr } = await supabase
+        .from('events')
+        .select('required_keys')
+        .eq('id', eventId)
+        .single();
+
+      if (evErr || !ev) return;
+
+      if ((participant.keys_balance || 0) < (ev.required_keys || 1)) {
+        socket.emit('vault:error', { message: 'Not enough keys' });
+        return;
+      }
+
+      // Anti-dupe: check if an active vault already exists for this event
+      const { data: existingVault } = await supabase
+        .from('vaults')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingVault) {
+        // Vault already spawned — just re-broadcast it
+        const { data: vaultData } = await supabase
+          .from('vaults')
+          .select('*')
+          .eq('id', existingVault.id)
+          .single();
+        if (vaultData) socket.emit('vaults:init', [vaultData]);
+        return;
+      }
+
+      // Collect GPS positions of all participants in this event
+      const { data: participants } = await supabase
+        .from('event_participants')
+        .select('user_id')
+        .eq('event_id', eventId);
+
+      const participantIds = (participants || []).map(p => p.user_id);
+      const positions = participantIds
+        .map(id => playerPositions.get(id))
+        .filter(p => p && !p.flagged);
+
+      let centerLat, centerLng;
+      if (positions.length > 0) {
+        centerLat = positions.reduce((s, p) => s + p.lat, 0) / positions.length;
+        centerLng = positions.reduce((s, p) => s + p.lng, 0) / positions.length;
+      } else {
+        // Fallback to epicenter if no live positions
+        const { data: evGeo } = await supabase
+          .from('events')
+          .select('epicenter_lat, epicenter_lng')
+          .eq('id', eventId)
+          .single();
+        if (!evGeo?.epicenter_lat) return;
+        centerLat = evGeo.epicenter_lat;
+        centerLng = evGeo.epicenter_lng;
+      }
+
+      // Random offset ±200m
+      const offsetMeters = 50 + Math.random() * 150;
+      const angle = Math.random() * 2 * Math.PI;
+      const latOffset = (offsetMeters / 111000) * Math.cos(angle);
+      const lngOffset = (offsetMeters / (111000 * Math.cos(centerLat * Math.PI / 180))) * Math.sin(angle);
+
+      // Fetch prize pool for reward
+      const { data: evPrize } = await supabase
+        .from('events')
+        .select('prize_pool')
+        .eq('id', eventId)
+        .single();
+
+      const reward = evPrize?.prize_pool || 1000;
+
+      const { data: newVault, error: insertErr } = await supabase
+        .from('vaults')
+        .insert({
+          event_id: eventId,
+          lat: centerLat + latOffset,
+          lng: centerLng + lngOffset,
+          reward,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (insertErr || !newVault) {
+        console.error('[vault:trigger] insert error:', insertErr);
+        socket.emit('vault:error', { message: 'Failed to spawn vault' });
+        return;
+      }
+
+      console.log(`[vault:trigger] Vault ${newVault.id} spawned for event ${eventId} at (${(centerLat + latOffset).toFixed(5)}, ${(centerLng + lngOffset).toFixed(5)})`);
+
+      // Broadcast vault to ALL players
+      io.emit('vaults:init', [newVault]);
+      io.emit('vault:update', newVault);
+    } catch (err) {
+      console.error('[vault:trigger] exception:', err);
+    }
+  });
+
   // Event: Join (Zero Trust transaction)
   socket.on('event:join', async (data) => {
     try {
