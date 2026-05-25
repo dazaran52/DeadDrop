@@ -301,10 +301,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Global Grainy Overlay */}
-        <div className="fixed inset-0 pointer-events-none z-[100] opacity-[0.02] mix-blend-overlay overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-noise" />
-        </div>
       </div>
     </div>
   );
