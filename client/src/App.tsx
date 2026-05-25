@@ -113,17 +113,27 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadInitialData = async (userId: string) => {
+  const loadInitialData = async (uid: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('balance, username, role, avatar_url')
-        .eq('id', userId)
+        .eq('id', uid)
         .single();
 
       if (error) {
         console.error('Supabase DB Error:', error);
-        setIsAppReady(true); // Still allow app to proceed
+        if (error.code === 'PGRST116') {
+          // Profile doesn't exist — create an empty one so FK constraints are satisfied
+          await supabase.from('profiles').upsert({ id: uid, balance: 0 });
+          setUserId(uid);
+          setUsername(null);
+          setIsAppReady(true);
+          return;
+        }
+        // Other error — still set userId so AliasInit can be reached
+        setUserId(uid);
+        setIsAppReady(true);
         return;
       }
 
@@ -133,12 +143,12 @@ export default function App() {
         setRole(data.role ?? null);
         setAvatarUrl(data.avatar_url ?? null);
         setIsSuperUser(data.role === 'admin');
-        setUserId(userId);
+        setUserId(uid);
         setIsAppReady(true);
       }
     } catch (err) {
       console.error('Error loading initial data:', err);
-      setIsAppReady(true); // Still allow app to proceed
+      setIsAppReady(true);
     }
   };
 
