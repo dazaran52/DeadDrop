@@ -119,33 +119,23 @@ export default function App() {
         .from('profiles')
         .select('balance, username, role, avatar_url')
         .eq('id', uid)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Supabase DB Error:', error);
-        if (error.code === 'PGRST116') {
-          // Profile row doesn't exist yet — trigger on auth.users should have created it.
-          // Just show AliasInit so user can set their username.
-          setUserId(uid);
-          setUsername(null);
-          setIsAppReady(true);
-          return;
-        }
-        // Other error — still set userId so AliasInit can be reached
         setUserId(uid);
         setIsAppReady(true);
         return;
       }
 
-      if (data) {
-        setBalance(data.balance ?? 0);
-        setUsername(data.username ?? null);
-        setRole(data.role ?? null);
-        setAvatarUrl(data.avatar_url ?? null);
-        setIsSuperUser(data.role === 'admin');
-        setUserId(uid);
-        setIsAppReady(true);
-      }
+      // data is null when profile doesn't exist yet — show AliasInit
+      setBalance(data?.balance ?? 0);
+      setUsername(data?.username ?? null);
+      setRole(data?.role ?? null);
+      setAvatarUrl(data?.avatar_url ?? null);
+      setIsSuperUser(data?.role === 'admin');
+      setUserId(uid);
+      setIsAppReady(true);
     } catch (err) {
       console.error('Error loading initial data:', err);
       setIsAppReady(true);
