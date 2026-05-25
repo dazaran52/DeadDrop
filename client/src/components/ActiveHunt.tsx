@@ -81,10 +81,45 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   const isClaimingItemRef = useRef(false);
   const lastGpsSentRef = useRef<number>(0);
   const vaultTriggeredRef = useRef(false);
+  const [mapHeading, setMapHeading] = useState(0);
+  const [compassActive, setCompassActive] = useState(false);
+  const compassEnabledRef = useRef(false);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [hexCode, setHexCode] = useState('0x000000');
   const [isClaimed, setIsClaimed] = useState(false);
+
+  // Device orientation → map heading
+  useEffect(() => {
+    if (!compassActive) return;
+    const handler = (e: DeviceOrientationEvent) => {
+      const alpha = (e as any).webkitCompassHeading ?? e.alpha;
+      if (alpha !== null) {
+        setMapHeading(alpha);
+      }
+    };
+    window.addEventListener('deviceorientation', handler, true);
+    return () => window.removeEventListener('deviceorientation', handler, true);
+  }, [compassActive]);
+
+  const handleToggleCompass = async () => {
+    if (compassActive) {
+      setCompassActive(false);
+      setMapHeading(0);
+      return;
+    }
+    // iOS requires permission
+    const DevOri = DeviceOrientationEvent as any;
+    if (typeof DevOri.requestPermission === 'function') {
+      try {
+        const result = await DevOri.requestPermission();
+        if (result !== 'granted') return;
+      } catch {
+        return;
+      }
+    }
+    setCompassActive(true);
+  };
 
   // 4Hz countdown tick — only needed while event is upcoming
   useEffect(() => {
@@ -1478,6 +1513,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
               rewards={rewards}
               items={mapItems}
               shouldCenter={shouldCenterMap}
+              heading={mapHeading}
               onMapReady={setMapInstance}
               onVaultClaim={(vaultId) => {
                 if (socket) {
@@ -1598,7 +1634,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Zoom Controls - Left Bottom - Only show when countdown is finished */}
       {matchResult === 'playing' && mapInstance && activeOperationId && eventStatus !== 'upcoming' && (
-        <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[999999]">
+        <div className="fixed bottom-36 left-4 flex flex-col gap-2 z-[99999]">
           {/* Zoom In FAB */}
           <button
             onClick={() => {
@@ -1627,7 +1663,26 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
       {/* Right Side FABs - Bottom Right - Only show when countdown is finished */}
       {matchResult === 'playing' && activeOperationId && eventStatus !== 'upcoming' && (
-        <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[9999]">
+        <div className="fixed bottom-36 right-4 flex flex-col items-center gap-3 z-[999999]">
+
+        {/* Compass FAB */}
+        <button
+          onClick={handleToggleCompass}
+          title={compassActive ? 'Disable compass' : 'Enable compass'}
+          className={`w-12 h-12 rounded-full backdrop-blur-md border flex items-center justify-center transition-all ${
+            compassActive
+              ? 'bg-accent-orange/20 border-accent-orange text-accent-orange shadow-[0_0_12px_rgba(255,140,0,0.4)]'
+              : 'bg-black/50 border-white/10 text-white/80 hover:text-white hover:bg-black/70'
+          }`}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: `rotate(${mapHeading}deg)`, transition: 'transform 0.15s linear' }}
+          >
+            <polygon points="12,2 15,12 12,22 9,12" fill={compassActive ? 'currentColor' : 'none'} />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
+        </button>
+
         {/* Map Refresh Button */}
         {mapInstance && (
           <button

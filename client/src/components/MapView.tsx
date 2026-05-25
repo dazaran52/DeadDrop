@@ -74,6 +74,7 @@ interface MapViewProps {
   items?: any[];
   onVaultClaim?: (vaultId: string) => void;
   shouldCenter?: boolean;
+  heading?: number;
   onMapReady?: (map: any) => void;
 }
 
@@ -97,13 +98,25 @@ function MapReady({ onMapReady }: { onMapReady?: (map: any) => void }) {
   return null;
 }
 
-export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false, onMapReady }: MapViewProps) {
+export default function MapView({ userPos, accuracy, theme, vaults = [], lootAnimations = [], rewards = [], items = [], onVaultClaim, shouldCenter = false, heading = 0, onMapReady }: MapViewProps) {
   return (
-    <div className="w-full h-full relative group">
+    <div className="w-full h-full relative group overflow-hidden">
       {/* Map Scanning line effect */}
       <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden mix-blend-overlay opacity-20">
         <div className="w-full h-1 bg-accent-blue absolute animate-[scan_4s_linear_infinite]" />
       </div>
+
+      {/* Rotating wrapper — scales up to hide corners during rotation */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          transform: `rotate(${-heading}deg)`,
+          transition: 'transform 0.15s linear',
+          transformOrigin: 'center center',
+          scale: heading !== 0 ? '1.42' : '1',
+        }}
+      >
 
       <MapContainer
         center={userPos}
@@ -218,11 +231,13 @@ export default function MapView({ userPos, accuracy, theme, vaults = [], lootAni
         <RecenterMap pos={userPos} shouldCenter={shouldCenter} />
       </MapContainer>
 
-      {/* Aesthetic frame corners */}
-      <div className="absolute top-4 left-4 w-6 h-6 border-t border-l border-accent-blue/40 z-10" />
-      <div className="absolute top-4 right-4 w-6 h-6 border-t border-r border-accent-blue/40 z-10" />
-      <div className="absolute bottom-4 left-4 w-6 h-6 border-b border-l border-accent-blue/40 z-10" />
-      <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r border-accent-blue/40 z-10" />
+      </div> {/* end rotating wrapper */}
+
+      {/* Aesthetic frame corners — outside rotating div, always fixed */}
+      <div className="absolute top-4 left-4 w-6 h-6 border-t border-l border-accent-blue/40 z-10 pointer-events-none" />
+      <div className="absolute top-4 right-4 w-6 h-6 border-t border-r border-accent-blue/40 z-10 pointer-events-none" />
+      <div className="absolute bottom-4 left-4 w-6 h-6 border-b border-l border-accent-blue/40 z-10 pointer-events-none" />
+      <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r border-accent-blue/40 z-10 pointer-events-none" />
     </div>
   );
 }

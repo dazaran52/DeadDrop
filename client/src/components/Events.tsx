@@ -427,16 +427,28 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     const diffMs = start.getTime() - now.getTime();
 
     if (diffMs < 0) {
-      // Backend hasn't promoted to live yet - show stale state without fake "LIVE"
       return { text: 'WAITING FOR DEPLOYMENT', isLive: false };
     }
 
     const totalSec = Math.floor(diffMs / 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    if (diffMs > 24 * 3600 * 1000) {
+      const days = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      return { text: `IN ${days}D ${h}H`, isLive: false };
+    }
+
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    const pad = (n: number) => String(n).padStart(2, '0');
     return { text: `STARTS IN ${pad(h)}:${pad(m)}:${pad(s)}`, isLive: false };
+  };
+
+  const formatStartDate = (startTime: string): string => {
+    const d = new Date(startTime);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+      ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
@@ -632,17 +644,41 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
               <h2 className={`text-2xl font-black tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {event.title}
               </h2>
-              <div className={`flex items-center gap-1.5 text-[10px] tracking-wider ${isDark ? 'text-white/40' : 'text-gray-400'}`}>
-                  <span>📍</span>
-                  <span>
-                    {[event.city, event.country_code].filter(Boolean).join(', ')}
-                    {getEventDistance(event) !== null && (
-                      <span className="ml-1 text-accent-orange font-bold">
-                        · {formatDistance(getEventDistance(event)!)}
+
+              {/* Start date always visible */}
+              <div className={`flex items-center gap-1.5 text-[10px] tracking-wider font-mono ${isDark ? 'text-white/50' : 'text-gray-500'}`}>
+                <span>📅</span>
+                <span>{formatStartDate(event.start_time)}</span>
+              </div>
+
+              {/* Location — always visible, styled by proximity */}
+              {(() => {
+                const dist = getEventDistance(event);
+                const isNear = dist !== null && dist < 50_000;
+                const hasLocation = event.city || event.country;
+                if (isNear) {
+                  return (
+                    <div className="flex items-center gap-1.5 text-[10px] tracking-wider font-bold text-accent-orange">
+                      <span>📍</span>
+                      <span>
+                        {[event.city, event.country_code].filter(Boolean).join(', ')}
+                        {dist !== null && <span className="ml-1">· {formatDistance(dist)}</span>}
                       </span>
-                    )}
-                  </span>
-                </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className={`flex items-center gap-1.5 text-[10px] tracking-wider ${isDark ? 'text-white/25' : 'text-gray-400/60'}`}>
+                    <span>📍</span>
+                    <span>
+                      {hasLocation
+                        ? [event.city, event.country_code].filter(Boolean).join(', ')
+                        : 'Location TBD'}
+                      {dist !== null && <span className="ml-1">· {formatDistance(dist)}</span>}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
