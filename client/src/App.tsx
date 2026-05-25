@@ -124,8 +124,8 @@ export default function App() {
       if (error) {
         console.error('Supabase DB Error:', error);
         if (error.code === 'PGRST116') {
-          // Profile doesn't exist — create an empty one so FK constraints are satisfied
-          await supabase.from('profiles').upsert({ id: uid, balance: 0 });
+          // Profile row doesn't exist yet — trigger on auth.users should have created it.
+          // Just show AliasInit so user can set their username.
           setUserId(uid);
           setUsername(null);
           setIsAppReady(true);

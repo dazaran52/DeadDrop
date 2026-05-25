@@ -89,8 +89,7 @@ export default function AliasInit({ userId, onComplete }: AliasInitProps) {
     try {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ username: alias })
-        .eq('id', userId);
+        .upsert({ id: userId, username: alias, balance: 0 }, { onConflict: 'id' });
 
       if (updateError) {
         console.error('Update username error:', updateError);
