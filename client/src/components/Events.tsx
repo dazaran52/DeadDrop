@@ -103,7 +103,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     if (!el) return;
     const onTouchMove = (e: TouchEvent) => {
       if (el.scrollTop > 0) return;
-      if (pullYRef.current > 10) e.preventDefault();
+      if (pullYRef.current > 10 && e.cancelable) e.preventDefault();
     };
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => el.removeEventListener('touchmove', onTouchMove);
