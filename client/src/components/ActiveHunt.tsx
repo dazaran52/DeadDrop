@@ -299,7 +299,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .from('events')
           .select('title, required_keys, status, start_time')
           .eq('id', activeOperationId)
-          .single();
+          .maybeSingle();
 
         if (error || !data) {
           console.warn('Event lookup failed, redirecting to lobby:', error);
@@ -360,7 +360,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
           .select('keys_balance')
           .eq('event_id', activeOperationId)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error || !participantData) {
           // No event_participants record => no spectators allowed.
