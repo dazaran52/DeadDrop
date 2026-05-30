@@ -132,7 +132,7 @@ export default function Events({ balance, socket, activeOperationId, onNavigate,
     const d = Math.min(diff * 0.4, 80);
     setPullY(d);
     pullYRef.current = d;
-    if (d > 10) e.preventDefault();
+    // preventDefault is handled by native listener above (iOS requirement)
   };
 
   const handleTouchEnd = () => {
