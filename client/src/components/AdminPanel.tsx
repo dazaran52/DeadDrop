@@ -22,10 +22,14 @@ import {
   X,
   MapPin,
   Key,
+  Crosshair,
+  Activity,
+  Radio,
 } from 'lucide-react';
-import { MapContainer, TileLayer, useMapEvents, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, useMapEvents, Marker, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { io } from 'socket.io-client';
 
 interface AdminPanelProps {
   role: string | null;
@@ -75,6 +79,16 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Live Map Spawner States
+  const [showSpawnerMap, setShowSpawnerMap] = useState(false);
+  const [selectedEventForMap, setSelectedEventForMap] = useState<AdminEvent | null>(null);
+  const [spawnerMapItems, setSpawnerMapItems] = useState<any[]>([]);
+  const [participantsPositions, setParticipantsPositions] = useState<any[]>([]);
+  const [adminPosition, setAdminPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [tempKeyCoords, setTempKeyCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSpawningSingleKey, setIsSpawningSingleKey] = useState(false);
+  const [spawnerSocket, setSpawnerSocket] = useState<any>(null);
+
   // Default center (Prague)
   const DEFAULT_CENTER: [number, number] = [50.0755, 14.4378];
 
@@ -98,6 +112,92 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     </div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
+  });
+
+  // Pulsating green blip for hunters
+  const hunterIcon = L.divIcon({
+    className: 'custom-hunter-marker',
+    html: `
+      <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 10px; height: 10px; background: #22c55e; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 8px #22c55e; z-index: 2;"></div>
+        <div style="position: absolute; width: 20px; height: 20px; border: 2px solid #22c55e; border-radius: 50%; opacity: 0.8; animation: hunter-pulse 1.8s infinite ease-out; z-index: 1;"></div>
+        <style>
+          @keyframes hunter-pulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.0); opacity: 0; }
+          }
+        </style>
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+
+  // Pulsating blue blip for Admin
+  const adminIcon = L.divIcon({
+    className: 'custom-admin-marker',
+    html: `
+      <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 12px; height: 12px; background: #06b6d4; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 10px #06b6d4; z-index: 2;"></div>
+        <div style="position: absolute; width: 24px; height: 24px; border: 2.5px solid #06b6d4; border-radius: 50%; opacity: 0.8; animation: admin-pulse 1.8s infinite ease-out; z-index: 1;"></div>
+        <style>
+          @keyframes admin-pulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.0); opacity: 0; }
+          }
+        </style>
+      </div>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+
+  // Neon-yellow key marker
+  const spawnerKeyIcon = L.divIcon({
+    className: 'custom-spawner-key-marker',
+    html: `
+      <div style="
+        width: 18px;
+        height: 18px;
+        background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        border: 1.5px solid #fff;
+        border-radius: 50%;
+        box-shadow: 0 0 8px rgba(234, 179, 8, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+
+  // Neon-red targeting crosshair for clicks
+  const targetCrosshairIcon = L.divIcon({
+    className: 'custom-target-crosshair-marker',
+    html: `
+      <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; animation: target-rotate 6s linear infinite;">
+        <!-- Crosshair lines -->
+        <div style="position: absolute; width: 32px; height: 2px; background: #ef4444; opacity: 0.6;"></div>
+        <div style="position: absolute; height: 32px; width: 2px; background: #ef4444; opacity: 0.6;"></div>
+        <!-- Inner ring -->
+        <div style="position: absolute; width: 16px; height: 16px; border: 2px solid #ef4444; border-radius: 50%; box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);"></div>
+        <!-- Center red dot -->
+        <div style="position: absolute; width: 6px; height: 6px; background: #ef4444; border-radius: 50%;"></div>
+        <style>
+          @keyframes target-rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 
   // Reverse geocode lat/lng via Nominatim
@@ -167,6 +267,92 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     const t = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Socket.io Connection & Geolocation watch for Spawner Map
+  useEffect(() => {
+    if (!showSpawnerMap || !selectedEventForMap) return;
+
+    let socketInstance: any = null;
+    let watchId: number | null = null;
+
+    const initSocket = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      socketInstance = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001', {
+        path: '/socket.io',
+        transports: ['websocket', 'polling']
+      });
+
+      socketInstance.on('connect', () => {
+        console.log('[AdminPanel] Socket connected');
+        socketInstance.emit('player:identify', { playerId: user.id });
+        socketInstance.emit('admin:get_positions', { eventId: selectedEventForMap.id });
+      });
+
+      socketInstance.on('admin:positions_response', (res: any) => {
+        if (res.success) {
+          setParticipantsPositions(res.participants || []);
+          if (res.admin) {
+            setAdminPosition({ lat: res.admin.lat, lng: res.admin.lng });
+          }
+        } else {
+          console.error('[AdminPanel] admin:positions_response error:', res.error);
+        }
+      });
+
+      socketInstance.on('gps:update', (payload: any) => {
+        if (payload.id === user.id) {
+          setAdminPosition({ lat: payload.latitude, lng: payload.longitude });
+        } else {
+          setParticipantsPositions((prev) => {
+            const index = prev.findIndex((p) => p.id === payload.id);
+            if (index !== -1) {
+              const updated = [...prev];
+              updated[index] = {
+                ...updated[index],
+                lat: payload.latitude,
+                lng: payload.longitude,
+                timestamp: Date.now()
+              };
+              return updated;
+            } else {
+              return prev;
+            }
+          });
+        }
+      });
+
+      setSpawnerSocket(socketInstance);
+    };
+
+    initSocket();
+
+    // Watch admin's coordinates
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setAdminPosition({ lat: latitude, lng: longitude });
+          if (socketInstance && socketInstance.connected) {
+            socketInstance.emit('gps:update', { latitude, longitude, accuracy: position.coords.accuracy || 5 });
+          }
+        },
+        (err) => console.warn('[AdminPanel] watchPosition error:', err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    return () => {
+      if (socketInstance) {
+        socketInstance.disconnect();
+      }
+      setSpawnerSocket(null);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [showSpawnerMap, selectedEventForMap]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -382,44 +568,151 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     fetchEvents();
   };
 
+  // Map Click events helper for Spawner Map
+  const SpawnerMapEvents = () => {
+    useMapEvents({
+      click(e) {
+        setTempKeyCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
+      },
+    });
+    return null;
+  };
+
   const handleSpawnKeys = async (ev: AdminEvent) => {
     if (!ev.epicenter_lat || !ev.epicenter_lng) {
       setToast({ kind: 'err', msg: 'Event has no epicenter set' });
       return;
     }
 
-    const reqKeys = ev.required_keys ?? 4;
-    const { data: participants } = await supabase
-      .from('event_participants')
-      .select('user_id')
-      .eq('event_id', ev.id);
-    const participantCount = participants?.length ?? 1;
-    const totalKeys = Math.ceil(reqKeys * participantCount * 1.5);
+    setSelectedEventForMap(ev);
+    setTempKeyCoords(null);
+    setParticipantsPositions([]);
 
-    const minRadius = 50;
-    const maxRadius = 300;
-    const items: { event_id: string; lat: number; lng: number; is_claimed: boolean; type: string }[] = [];
+    // Fetch existing active (unclaimed) keys
+    const { data: keys, error } = await supabase
+      .from('event_items')
+      .select('*')
+      .eq('event_id', ev.id)
+      .eq('is_claimed', false);
 
-    for (let i = 0; i < totalKeys; i++) {
-      const angle = Math.random() * 2 * Math.PI;
-      const radius = minRadius + Math.random() * (maxRadius - minRadius);
-      const latOffset = (radius / 111000) * Math.cos(angle);
-      const lngOffset = (radius / (111000 * Math.cos(ev.epicenter_lat! * Math.PI / 180))) * Math.sin(angle);
-      items.push({
-        event_id: ev.id,
-        lat: ev.epicenter_lat! + latOffset,
-        lng: ev.epicenter_lng! + lngOffset,
-        is_claimed: false,
-        type: 'key',
-      });
-    }
-
-    const { error } = await supabase.from('event_items').insert(items);
     if (error) {
-      setToast({ kind: 'err', msg: `Spawn failed: ${error.message}` });
+      setToast({ kind: 'err', msg: `Failed to load event keys: ${error.message}` });
       return;
     }
-    setToast({ kind: 'ok', msg: `${totalKeys} keys spawned (${reqKeys} req × ${participantCount} hunters × 1.5)` });
+
+    setSpawnerMapItems(keys || []);
+    setShowSpawnerMap(true);
+  };
+
+  const handleSpawnSingleKey = async () => {
+    if (!selectedEventForMap || !tempKeyCoords) return;
+    setIsSpawningSingleKey(true);
+
+    try {
+      const newItem = {
+        event_id: selectedEventForMap.id,
+        lat: tempKeyCoords.lat,
+        lng: tempKeyCoords.lng,
+        is_claimed: false,
+        type: 'key',
+      };
+
+      const { data, error } = await supabase
+        .from('event_items')
+        .insert(newItem)
+        .select()
+        .single();
+
+      if (error) {
+        setToast({ kind: 'err', msg: `UPLINK FAILURE: ${error.message}` });
+        setIsSpawningSingleKey(false);
+        return;
+      }
+
+      // Add to local keys state
+      setSpawnerMapItems((prev) => [...prev, data]);
+      setTempKeyCoords(null);
+      setToast({ kind: 'ok', msg: 'KEY UPLINK ESTABLISHED SUCCESSFULLY' });
+
+      // Play cyber beep tone
+      try {
+        const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        }
+      } catch {}
+    } catch (err: any) {
+      setToast({ kind: 'err', msg: `UPLINK FAILURE: ${err.message}` });
+    } finally {
+      setIsSpawningSingleKey(false);
+    }
+  };
+
+  const handleAutoSpawnBatchKeys = async () => {
+    if (!selectedEventForMap) return;
+    if (!confirm('SPAWN A RANDOM BATCH OF KEYS AROUND EPICENTER?')) return;
+
+    setIsSpawningSingleKey(true);
+
+    try {
+      const ev = selectedEventForMap;
+      const reqKeys = ev.required_keys ?? 4;
+      const { data: participants } = await supabase
+        .from('event_participants')
+        .select('user_id')
+        .eq('event_id', ev.id);
+      const participantCount = participants?.length ?? 1;
+      const totalKeys = Math.ceil(reqKeys * participantCount * 1.5);
+
+      const minRadius = 50;
+      const maxRadius = 300;
+      const items: { event_id: string; lat: number; lng: number; is_claimed: boolean; type: string }[] = [];
+
+      for (let i = 0; i < totalKeys; i++) {
+        const angle = Math.random() * 2 * Math.PI;
+        const radius = minRadius + Math.random() * (maxRadius - minRadius);
+        const latOffset = (radius / 111000) * Math.cos(angle);
+        const lngOffset = (radius / (111000 * Math.cos(ev.epicenter_lat! * Math.PI / 180))) * Math.sin(angle);
+        items.push({
+          event_id: ev.id,
+          lat: ev.epicenter_lat! + latOffset,
+          lng: ev.epicenter_lng! + lngOffset,
+          is_claimed: false,
+          type: 'key',
+        });
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('event_items')
+        .insert(items)
+        .select();
+
+      if (error) {
+        setToast({ kind: 'err', msg: `Batch spawn failed: ${error.message}` });
+        return;
+      }
+
+      // Update local keys state
+      if (inserted) {
+        setSpawnerMapItems((prev) => [...prev, ...inserted]);
+      }
+      setToast({ kind: 'ok', msg: `${totalKeys} KEYS DEPLOYED SUCCESSFULLY` });
+    } catch (err: any) {
+      setToast({ kind: 'err', msg: err.message });
+    } finally {
+      setIsSpawningSingleKey(false);
+    }
   };
 
   const fmtDate = (iso: string) => {
@@ -833,6 +1126,194 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
               Confirm Coordinates
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Map Modal for Event Live Map & Key Spawner */}
+      {showSpawnerMap && selectedEventForMap && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col font-mono text-white">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#070708] backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center justify-center animate-pulse">
+                <Radio className="w-4 h-4 text-green-400" />
+              </div>
+              <div>
+                <span className="text-xs text-green-400 font-bold uppercase tracking-wider block">Live Uplink Active</span>
+                <span className="text-sm font-semibold text-white/90 uppercase">{selectedEventForMap.title}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleAutoSpawnBatchKeys}
+                disabled={isSpawningSingleKey}
+                className="px-4 py-2 border border-yellow-500/40 bg-yellow-500/5 hover:bg-yellow-500/10 text-yellow-400 text-xs font-semibold rounded-xl uppercase tracking-wider transition-all flex items-center gap-2"
+              >
+                <Key className="w-3.5 h-3.5" />
+                Auto-Spawn Batch
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSpawnerMap(false);
+                  setSelectedEventForMap(null);
+                }}
+                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 border border-white/5 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Map Container */}
+          <div className="flex-1 relative">
+            <MapContainer
+              center={[selectedEventForMap.epicenter_lat!, selectedEventForMap.epicenter_lng!]}
+              zoom={15}
+              scrollWheelZoom={true}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              />
+              <SpawnerMapEvents />
+
+              {/* Epicenter Anchor & Circle Radius */}
+              <Marker
+                position={[selectedEventForMap.epicenter_lat!, selectedEventForMap.epicenter_lng!]}
+                icon={epicenterIcon}
+              />
+              <Circle
+                center={[selectedEventForMap.epicenter_lat!, selectedEventForMap.epicenter_lng!]}
+                radius={300}
+                pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.05, weight: 1.5, dashArray: '5, 8' }}
+              />
+
+              {/* Existing active keys */}
+              {spawnerMapItems.map((key) => (
+                <Marker
+                  key={key.id}
+                  position={[key.lat, key.lng]}
+                  icon={spawnerKeyIcon}
+                />
+              ))}
+
+              {/* Active event participants */}
+              {participantsPositions.map((p) => (
+                <Marker
+                  key={p.id}
+                  position={[p.lat, p.lng]}
+                  icon={hunterIcon}
+                />
+              ))}
+
+              {/* Admin marker (You) */}
+              {adminPosition && (
+                <Marker
+                  position={[adminPosition.lat, adminPosition.lng]}
+                  icon={adminIcon}
+                />
+              )}
+
+              {/* Spawn Target Marker */}
+              {tempKeyCoords && (
+                <Marker
+                  position={[tempKeyCoords.lat, tempKeyCoords.lng]}
+                  icon={targetCrosshairIcon}
+                />
+              )}
+            </MapContainer>
+
+            {/* Glowing Map overlay stats */}
+            <div className="absolute top-4 left-4 z-[999] flex flex-col gap-2 pointer-events-none">
+              <div className="bg-black/80 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-xl flex items-center gap-3 shadow-2xl">
+                <Activity className="w-4 h-4 text-green-400 animate-pulse" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Grid Telemetry</span>
+                  <span className="text-xs text-white/80 font-bold">
+                    Hunters Online: <span className="text-green-400">{participantsPositions.length}</span>
+                  </span>
+                </div>
+              </div>
+              <div className="bg-black/80 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-xl flex items-center gap-3 shadow-2xl">
+                <Key className="w-4 h-4 text-yellow-400" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Uplink Keys</span>
+                  <span className="text-xs text-white/80 font-bold">
+                    Active Items: <span className="text-yellow-400">{spawnerMapItems.length}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Click to spawn instruction overlay if no target selected */}
+            {!tempKeyCoords && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[999] bg-black/85 backdrop-blur-md border border-white/10 text-white/70 text-xs px-6 py-3 rounded-2xl pointer-events-none font-bold tracking-wider uppercase text-center max-w-sm shadow-2xl">
+                <span className="text-green-400">⚡ Tactical Uplink Active</span><br />
+                <span className="text-[10px] text-white/50">Click anywhere on the map grid to lock-on target for key deployment.</span>
+              </div>
+            )}
+
+            {/* Key Deploying Action Box (Cyberpunk HUD style) */}
+            {tempKeyCoords && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[999] bg-[#09090b]/95 backdrop-blur-md border border-red-500/30 p-5 rounded-2xl w-full max-w-sm shadow-2xl animate-fade-in flex flex-col gap-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                    <Crosshair className="w-4 h-4 animate-spin" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-red-400 uppercase tracking-widest font-bold">UPLINK RANGE ACQUIRED</span>
+                    <span className="text-xs block text-white/70 font-semibold">
+                      {tempKeyCoords.lat.toFixed(6)}° N, {tempKeyCoords.lng.toFixed(6)}° E
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTempKeyCoords(null)}
+                    className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-white/70 hover:bg-white/10 text-xs font-bold uppercase transition-all tracking-wider"
+                  >
+                    Abort Target
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSpawnSingleKey}
+                    disabled={isSpawningSingleKey}
+                    className="flex-1 py-3 bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 text-green-300 disabled:opacity-40 rounded-xl text-xs font-bold uppercase transition-all tracking-widest flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(34,197,94,0.15)]"
+                  >
+                    {isSpawningSingleKey ? (
+                      <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4" />
+                    )}
+                    Deploy 1 Key
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* User list sidebar / details overlay */}
+          {participantsPositions.length > 0 && (
+            <div className="absolute right-4 top-4 z-[999] bg-black/80 backdrop-blur-md border border-white/10 p-4 rounded-2xl w-60 shadow-2xl pointer-events-auto">
+              <span className="text-[10px] text-white/40 uppercase tracking-widest block font-bold mb-2">Hunter Grid Telemetry</span>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {participantsPositions.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+                      <span className="text-white/80 font-bold truncate max-w-[120px]">{p.username}</span>
+                    </div>
+                    <span className="text-[9px] text-white/40">{((Date.now() - p.timestamp) / 1000).toFixed(0)}s ago</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

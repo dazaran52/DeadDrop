@@ -459,12 +459,83 @@ io.on('connection', (socket) => {
       }
 
       console.log(`[vault:trigger] Vault ${newVault.id} spawned for event ${eventId} at (${(centerLat + latOffset).toFixed(5)}, ${(centerLng + lngOffset).toFixed(5)})`);
-
+      
       // Broadcast vault to ALL players
       io.emit('vaults:init', [newVault]);
       io.emit('vault:update', newVault);
     } catch (err) {
       console.error('[vault:trigger] exception:', err);
+    }
+  });
+
+  // Admin: Request all participant positions for a specific event
+  socket.on('admin:get_positions', async ({ eventId }) => {
+    try {
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId) {
+        socket.emit('admin:positions_response', { success: false, error: 'Not identified' });
+        return;
+      }
+
+      // Verify admin role
+      const { data: profile, error: profErr } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', playerId)
+        .single();
+
+      if (profErr || !profile || profile.role !== 'admin') {
+        socket.emit('admin:positions_response', { success: false, error: 'Access denied' });
+        return;
+      }
+
+      // Fetch all participants for this event
+      const { data: participants, error: partError } = await supabase
+        .from('event_participants')
+        .select('user_id, profiles(username)')
+        .eq('event_id', eventId);
+
+      if (partError) {
+        socket.emit('admin:positions_response', { success: false, error: partError.message });
+        return;
+      }
+
+      const participantPositions = [];
+      for (const p of participants || []) {
+        const pos = playerPositions.get(p.user_id);
+        if (pos) {
+          participantPositions.push({
+            id: p.user_id,
+            username: p.profiles?.username || 'Unknown Hunter',
+            lat: pos.lat,
+            lng: pos.lng,
+            timestamp: pos.timestamp,
+            flagged: pos.flagged
+          });
+        }
+      }
+
+      // Add admin's own position if they have one (even if not participant)
+      const adminPos = playerPositions.get(playerId);
+      let adminPositionData = null;
+      if (adminPos) {
+        adminPositionData = {
+          id: playerId,
+          username: 'Admin (You)',
+          lat: adminPos.lat,
+          lng: adminPos.lng,
+          timestamp: adminPos.timestamp
+        };
+      }
+
+      socket.emit('admin:positions_response', {
+        success: true,
+        participants: participantPositions,
+        admin: adminPositionData
+      });
+    } catch (err) {
+      console.error('[admin:get_positions] error:', err);
+      socket.emit('admin:positions_response', { success: false, error: err.message });
     }
   });
 
