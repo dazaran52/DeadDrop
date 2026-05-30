@@ -26,7 +26,7 @@ import {
   Activity,
   Radio,
 } from 'lucide-react';
-import { MapContainer, TileLayer, useMapEvents, Marker, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, useMapEvents, Marker, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { io } from 'socket.io-client';
