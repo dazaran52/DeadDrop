@@ -72,10 +72,14 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   const [prizePoolOverride, setPrizePoolOverride] = useState(false);
   const [epicenter, setEpicenter] = useState<{lat: number, lng: number} | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
-  const [tempEpicenter, setTempEpicenter] = useState<{lat: number, lng: number} | null>(null);
-  const [geocoding, setGeocoding] = useState(false);
-  const [locationLabel, setLocationLabel] = useState<{city: string; country: string; country_code: string} | null>(null);
+  const [tempEpicenter, setTempEpicenter] = useState<{ lat: number; lng: number } | null>(null);
   const [tempLocationLabel, setTempLocationLabel] = useState<{city: string; country: string; country_code: string} | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [mapFlyTarget, setMapFlyTarget] = useState<{lat: number, lng: number} | null>(null);
+  const [locationLabel, setLocationLabel] = useState<{city: string; country: string; country_code: string} | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -201,6 +205,38 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
   });
 
   // Reverse geocode lat/lng via Nominatim
+  const handleCitySearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1`, {
+        headers: { 'User-Agent': 'DeadDropApp/1.0' }
+      });
+      if (!res.ok) throw new Error('Search failed');
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        setTempEpicenter({ lat, lng });
+        setMapFlyTarget({ lat, lng });
+        
+        // Reverse geocode to get nice label
+        const loc = await reverseGeocode(lat, lng);
+        setTempLocationLabel(loc);
+      } else {
+        setSearchError('Location not found');
+      }
+    } catch (err) {
+      console.error('Geocoding error:', err);
+      setSearchError('Search error');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const reverseGeocode = async (lat: number, lng: number): Promise<{city: string; country: string; country_code: string} | null> => {
     try {
       const res = await fetch(
@@ -231,6 +267,15 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
 
   // LocationPicker for modal (uses temp state) + reverse geocoding
   const ModalLocationPicker = () => {
+    const map = useMap();
+    
+    useEffect(() => {
+      if (mapFlyTarget) {
+        map.flyTo([mapFlyTarget.lat, mapFlyTarget.lng], 14);
+        setMapFlyTarget(null);
+      }
+    }, [mapFlyTarget, map]);
+
     useMapEvents({
       click(e) {
         const { lat, lng } = e.latlng;
@@ -260,6 +305,24 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
     }
     setShowMapModal(false);
   };
+
+  // Geolocation watch for Drop Zone selection
+  useEffect(() => {
+    if (!showMapModal) return;
+    let watchId: number | null = null;
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setAdminPosition({ lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        (err) => console.warn('[AdminPanel] DropZone watch error:', err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+    return () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [showMapModal]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -1060,6 +1123,29 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
               <MapPin className="w-5 h-5 text-red-400" />
               <span className="text-sm font-bold text-white uppercase tracking-wider">Select Drop Zone</span>
             </div>
+            
+            {/* Search Bar */}
+            <form onSubmit={handleCitySearch} className="flex-1 max-w-md mx-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search city, region, or address..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-red-500/50"
+                  disabled={isSearching}
+                />
+                <button 
+                  type="submit"
+                  disabled={isSearching || !searchQuery.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white disabled:opacity-50"
+                >
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                </button>
+              </div>
+              {searchError && <p className="text-red-400 text-xs mt-1 absolute">{searchError}</p>}
+            </form>
+
             <button
               type="button"
               onClick={() => setShowMapModal(false)}
@@ -1084,6 +1170,9 @@ export default function AdminPanel({ role, theme = 'dark' }: AdminPanelProps) {
               <ModalLocationPicker />
               {tempEpicenter !== null && (
                 <Marker position={[tempEpicenter.lat, tempEpicenter.lng]} icon={epicenterIcon} />
+              )}
+              {adminPosition && (
+                <Marker position={[adminPosition.lat, adminPosition.lng]} icon={adminIcon} />
               )}
             </MapContainer>
 

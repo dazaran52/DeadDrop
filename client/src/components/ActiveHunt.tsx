@@ -635,29 +635,72 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
   }, [userLocation, mapItems]);
 
   // Web Audio API for radar ping
+  // Web Audio API for radar ping + Haptics
   const playPing = useCallback(() => {
     const audioCtx = audioCtxRef.current;
+    
+    // Determine the target distance (vault takes priority, otherwise nearest key)
+    const distance = nearestVaultDistance !== null ? nearestVaultDistance : (nearestKeyDist !== null ? nearestKeyDist : null);
+    
+    if (distance === null) return; // Nothing to ping
+
+    // --- HAPTICS ---
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (distance < 15) {
+        // Hacking zone: Aggressive vibration
+        navigator.vibrate([100, 50, 100, 50, 200]);
+      } else if (distance < 50) {
+        // Approaching: Heartbeat
+        navigator.vibrate([80, 50, 80]);
+      } else {
+        // Far: Light tick
+        navigator.vibrate([30]);
+      }
+    }
+
     if (!audioCtx) return;
     
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
+    const t = audioCtx.currentTime;
     
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+    // Main oscillator (fundamental)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
     
-    // Frequency based on distance (closer = higher pitch)
-    const distance = nearestVaultDistance || 1000;
-    const frequency = Math.max(800, Math.min(2000, 2000 - distance));
+    // Secondary oscillator (harmonic for sonar texture)
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
     
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'sine';
+    // Frequencies: Closer = higher pitch and more intense
+    const baseFreq = Math.max(600, Math.min(2200, 2200 - distance));
     
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(baseFreq, t);
     
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.1);
-  }, [nearestVaultDistance]);
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(baseFreq * 1.5, t); // Perfect fifth harmonic
+    
+    // Envelopes (sharp attack, exponential decay)
+    // When very close, the decay is shorter (more rapid beeps)
+    const decayTime = distance < 20 ? 0.05 : 0.3;
+    
+    gain1.gain.setValueAtTime(0, t);
+    gain1.gain.linearRampToValueAtTime(0.2, t + 0.01);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + decayTime);
+    
+    gain2.gain.setValueAtTime(0, t);
+    gain2.gain.linearRampToValueAtTime(0.05, t + 0.01);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + decayTime);
+    
+    osc1.start(t);
+    osc2.start(t);
+    osc1.stop(t + decayTime + 0.1);
+    osc2.stop(t + decayTime + 0.1);
+    
+  }, [nearestVaultDistance, nearestKeyDist]);
 
   // Handle claiming nearby item
   const handleClaimItem = useCallback(async () => {
@@ -718,7 +761,7 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
       setClaimOverlay('Key collected!');
       setShowKeyGain(true);
       playKeyTing();
-      if (navigator.vibrate) navigator.vibrate(80);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([500, 100, 500]); // Premium massive vibration
       setTimeout(() => setClaimOverlay(null), 2500);
       setTimeout(() => setShowKeyGain(false), 500);
     } catch (err) {
@@ -806,17 +849,20 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
     }
 
     const scheduleNextPing = () => {
-      if (!audioEnabled || nearestVaultDistance === null) return;
+      const distance = nearestVaultDistance !== null ? nearestVaultDistance : (nearestKeyDist !== null ? nearestKeyDist : null);
+      if (!audioEnabled || distance === null) return;
       
-      const distance = nearestVaultDistance;
       const interval = distance > 100 ? 3000 : distance < 20 ? 500 : 1500;
       
       playPing();
       pingIntervalRef.current = setTimeout(scheduleNextPing, interval);
     };
 
-    playPing();
-    pingIntervalRef.current = setTimeout(scheduleNextPing, nearestVaultDistance > 100 ? 3000 : nearestVaultDistance < 20 ? 500 : 1500);
+    const initialDist = nearestVaultDistance !== null ? nearestVaultDistance : (nearestKeyDist !== null ? nearestKeyDist : null);
+    if (initialDist !== null) {
+      playPing();
+      pingIntervalRef.current = setTimeout(scheduleNextPing, initialDist > 100 ? 3000 : initialDist < 20 ? 500 : 1500);
+    }
     
     return () => {
       if (pingIntervalRef.current) {
@@ -1171,6 +1217,24 @@ export default function ActiveHunt({ initialCoords, onBack, onNavigate, theme, b
 
   return (
     <div className="absolute inset-0 w-full h-screen bg-black flex flex-col overflow-hidden">
+      {/* Visual Glitch Layer for Premium Feel (Active when very close) */}
+      {matchResult === 'playing' && ((nearestVaultDistance !== null && nearestVaultDistance < 15) || (nearestVaultDistance === null && nearestKeyDist !== null && nearestKeyDist < 15)) && (
+        <div className="absolute inset-0 z-[50] pointer-events-none mix-blend-screen overflow-hidden">
+          <style>{`
+            @keyframes glitch-anim {
+              0% { clip-path: inset(10% 0 85% 0); transform: translate(-2px, 2px); }
+              20% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
+              40% { clip-path: inset(40% 0 45% 0); transform: translate(-2px, -2px); }
+              60% { clip-path: inset(20% 0 60% 0); transform: translate(2px, 2px); }
+              80% { clip-path: inset(90% 0 5% 0); transform: translate(-2px, 2px); }
+              100% { clip-path: inset(5% 0 80% 0); transform: translate(2px, -2px); }
+            }
+          `}</style>
+          <div className="absolute inset-0 bg-red-500/10 opacity-50" style={{ animation: 'glitch-anim 0.3s infinite', boxShadow: 'inset 0 0 100px rgba(255, 0, 0, 0.5)' }} />
+          <div className="absolute inset-0 border-4 border-red-500/50 animate-pulse" />
+        </div>
+      )}
+
       {/* Operation Header */}
       <div className="absolute top-0 w-full bg-black/90 border-b border-white/10 py-3 text-center z-[9999]">
         <span className="text-white font-mono text-sm font-bold uppercase tracking-wider px-4 truncate">
